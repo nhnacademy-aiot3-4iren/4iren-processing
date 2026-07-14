@@ -2,6 +2,20 @@ spring:
   application:
     name: 4iren-processing
 
+  rabbitmq:
+    host: ${RABBIT_HOST}
+    port: ${RABBIT_PORT}
+    username: ${RABBIT_USERNAME}
+    password: ${RABBIT_PASSWORD}
+    listener:
+      simple:
+        concurrency: 5
+        max-concurrency: 15
+        acknowledge-mode: auto
+    template:
+      exchange: ${RABBIT_EXCHANGE_NAME}
+      routing-key: ${RABBIT_ROUTING_KEY}
+
 management:
   endpoints:
     web:
@@ -10,3 +24,9 @@ management:
   endpoint:
     health:
       show-details: always
+
+influx:
+  url: ${INFLUX_URL}
+  token: ${INFLUX_TOKEN}
+  org: ${INFLUX_ORG}
+  bucket: ${INFLUX_BUCKET}
