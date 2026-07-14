@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: 4iren-processing
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: always
