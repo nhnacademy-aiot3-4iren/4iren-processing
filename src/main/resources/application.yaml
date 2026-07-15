@@ -2,6 +2,17 @@ spring:
   application:
     name: 4iren-processing
 
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://s4.java21.net:13306/aiot03_team4
+    username: aiot03_team4
+    password: Yky2!)i0b-h6kYwZ
+    type: org.apache.commons.dbcp2.BasicDataSource
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
   rabbitmq:
     host: ${RABBIT_HOST}
     port: ${RABBIT_PORT}
