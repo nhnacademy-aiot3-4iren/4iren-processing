@@ -1,6 +1,6 @@
 package com.nhnacademy.processing.dto;
 
-public record SensorRawMessage(
+public record RawSensorMessage(
         Long brokerId,
         String topic,
         String payload
