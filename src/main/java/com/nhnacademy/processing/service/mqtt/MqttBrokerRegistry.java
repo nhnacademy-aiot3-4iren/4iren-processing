@@ -1,8 +1,8 @@
 package com.nhnacademy.processing.service.mqtt;
 
 import com.nhnacademy.processing.domain.MqttBrokerInfo;
-import com.nhnacademy.processing.dto.SensorRawMessage;
-import com.nhnacademy.processing.repository.MqttBrokerInfoRepository;
+import com.nhnacademy.processing.dto.RawSensorMessage;
+import com.nhnacademy.processing.service.process.SensorMessageHandler;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,15 +30,15 @@ import java.util.concurrent.ExecutorService;
 public class MqttBrokerRegistry {
 
     private final IntegrationFlowContext flowContext;
-    private final MqttBrokerInfoRepository brokerConfigRepository;
-    private final SensorMessageHandler sensorMessageHandler;
+    private final MqttBrokerService mqttBrokerService;
+//    private final SensorMessageHandler sensorMessageHandler;
     private final ExecutorService mqttProcessingExecutor;
 
     private final Map<Long, IntegrationFlowContext.IntegrationFlowRegistration> registrations = new ConcurrentHashMap<>();
 
     @PostConstruct
     public void init() {
-        brokerConfigRepository.findAllByEnabled(true).forEach(this::registerBroker);
+        mqttBrokerService.getMqttBrokerInfo().forEach(this::registerBroker);
         log.info("MQTT 브로커 {}개 등록 완료", registrations.size());
     }
 
@@ -87,7 +87,7 @@ public class MqttBrokerRegistry {
 
         mqttProcessingExecutor.submit(() -> {
             try {
-                sensorMessageHandler.handle(new SensorRawMessage(brokerId, topic, rawPayload));
+//                sensorMessageHandler.handle(new RawSensorMessage(brokerId, topic, rawPayload));
                 if (ackCallBack instanceof SimpleAcknowledgment ack) {
                    ack.acknowledge();
                 }
