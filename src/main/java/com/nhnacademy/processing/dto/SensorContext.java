@@ -1,4 +1,4 @@
-package com.nhnacademy.processing.dto.sensor;
+package com.nhnacademy.processing.dto;
 
 public record SensorContext(
         String devEui,

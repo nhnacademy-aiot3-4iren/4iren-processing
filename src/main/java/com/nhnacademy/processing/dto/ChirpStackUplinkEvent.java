@@ -11,6 +11,7 @@ public record ChirpStackUplinkEvent(
         List<RxInfo> rxInfo
 ) {
     public record DeviceInfo(
+            String applicationId,
             String applicationName,
             String deviceProfileId,
             String deviceName,

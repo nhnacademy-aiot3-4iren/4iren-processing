@@ -1,8 +1,8 @@
 package com.nhnacademy.processing.service.mqtt;
 
 import com.nhnacademy.processing.domain.MqttBrokerInfo;
-import com.nhnacademy.processing.dto.RawSensorMessage;
-import com.nhnacademy.processing.service.process.SensorMessageHandler;
+import com.nhnacademy.processing.dto.sensor.ParsedSensorMessage;
+import com.nhnacademy.processing.parse.SensorPayloadConverter;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,7 +16,6 @@ import org.springframework.integration.mqtt.core.DefaultMqttPahoClientFactory;
 import org.springframework.integration.mqtt.core.MqttPahoClientFactory;
 import org.springframework.integration.mqtt.inbound.MqttPahoMessageDrivenChannelAdapter;
 import org.springframework.integration.mqtt.support.DefaultPahoMessageConverter;
-import org.springframework.integration.mqtt.support.MqttHeaders;
 import org.springframework.messaging.Message;
 import org.springframework.stereotype.Service;
 
@@ -31,10 +30,10 @@ public class MqttBrokerRegistry {
 
     private final IntegrationFlowContext flowContext;
     private final MqttBrokerService mqttBrokerService;
-//    private final SensorMessageHandler sensorMessageHandler;
     private final ExecutorService mqttProcessingExecutor;
 
     private final Map<Long, IntegrationFlowContext.IntegrationFlowRegistration> registrations = new ConcurrentHashMap<>();
+    private final SensorPayloadConverter sensorPayloadConverter;
 
     @PostConstruct
     public void init() {
@@ -77,22 +76,18 @@ public class MqttBrokerRegistry {
     }
 
     private void handleMessage(Long brokerId, Message<?> message) {
-        log.info(message.toString());
-
-        String topic = (String) message.getHeaders().get(MqttHeaders.RECEIVED_TOPIC);
-        String rawPayload = (String) message.getPayload();
-
         IntegrationMessageHeaderAccessor accessor = new IntegrationMessageHeaderAccessor(message);
         Object ackCallBack = accessor.getHeader(IntegrationMessageHeaderAccessor.ACKNOWLEDGMENT_CALLBACK);
 
         mqttProcessingExecutor.submit(() -> {
             try {
-//                sensorMessageHandler.handle(new RawSensorMessage(brokerId, topic, rawPayload));
+                ParsedSensorMessage parsedMessage = sensorPayloadConverter.convert(message.getPayload().toString());
+                log.info(parsedMessage.toString());
                 if (ackCallBack instanceof SimpleAcknowledgment ack) {
                    ack.acknowledge();
                 }
             } catch (Exception e) {
-                log.error("메시지 처리 실패: brokerId({}), topic({})", brokerId, topic, e);
+                log.error("메시지 처리 실패: brokerId({})", brokerId, e);
             }
         });
     }

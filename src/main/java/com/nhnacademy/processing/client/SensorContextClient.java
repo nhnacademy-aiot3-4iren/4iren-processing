@@ -1,6 +1,6 @@
 package com.nhnacademy.processing.client;
 
-import com.nhnacademy.processing.dto.sensor.SensorContext;
+import com.nhnacademy.processing.dto.SensorContext;
 import com.nhnacademy.processing.exception.InvalidDevEuiException;
 import com.nhnacademy.processing.exception.SensorContextNotFoundException;
 import lombok.RequiredArgsConstructor;

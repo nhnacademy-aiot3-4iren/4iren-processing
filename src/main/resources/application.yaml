@@ -41,3 +41,6 @@ influx:
   token: ${INFLUX_TOKEN}
   org: ${INFLUX_ORG}
   bucket: ${INFLUX_BUCKET}
+
+sensor-context:
+  base-url: http://localhost:8081
