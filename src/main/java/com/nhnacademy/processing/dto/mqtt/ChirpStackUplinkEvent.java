@@ -1,4 +1,4 @@
-package com.nhnacademy.processing.dto;
+package com.nhnacademy.processing.dto.mqtt;
 
 import java.time.Instant;
 import java.util.List;

@@ -1,4 +1,4 @@
-package com.nhnacademy.processing.dto;
+package com.nhnacademy.processing.dto.sensor;
 
 public enum MeasurementCategory {
     ENVIRONMENT,        // 필터링 O, 룰 엔진 발행 O

@@ -1,9 +1,9 @@
-package com.nhnacademy.processing.parse;
+package com.nhnacademy.processing.service.process;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nhnacademy.processing.dto.ChirpStackUplinkEvent;
-import com.nhnacademy.processing.dto.MeasurementCategory;
+import com.nhnacademy.processing.dto.mqtt.ChirpStackUplinkEvent;
+import com.nhnacademy.processing.dto.sensor.MeasurementCategory;
 import com.nhnacademy.processing.dto.sensor.DeviceIdentity;
 import com.nhnacademy.processing.dto.sensor.ParsedSensorMessage;
 import com.nhnacademy.processing.dto.sensor.SensorData;
@@ -40,12 +40,14 @@ public class SensorPayloadConverter {
             throw new SensorPayloadParseException("측정값 없음(" + event.deviceInfo().devEui());
         }
 
+
+        String location = (event.deviceInfo().tags() == null) ? "unknown" : event.deviceInfo().tags().getOrDefault("location", "unknown");
         DeviceIdentity device = new DeviceIdentity(event.deviceInfo().applicationId(),
                                                     event.deviceInfo().applicationName(),
                                                     event.deviceInfo().deviceProfileId(),
                                                     event.deviceInfo().deviceName(),
                                                     event.deviceInfo().devEui(),
-                                                    event.deviceInfo().tags());
+                                                    location);
         List<SensorData> sensorDataList = new ArrayList<>();
         event.object().forEach((measurement, rawValue) -> {
             if(ENV_MEASUREMENTS.contains(measurement)) {

@@ -1,8 +1,8 @@
 package com.nhnacademy.processing.service.mqtt;
 
-import com.nhnacademy.processing.domain.MqttBrokerInfo;
+import com.nhnacademy.processing.dto.mqtt.MqttBrokerDto;
 import com.nhnacademy.processing.dto.sensor.ParsedSensorMessage;
-import com.nhnacademy.processing.parse.SensorPayloadConverter;
+import com.nhnacademy.processing.service.process.SensorPayloadConverter;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,11 +41,11 @@ public class MqttBrokerRegistry {
         log.info("MQTT 브로커 {}개 등록 완료", registrations.size());
     }
 
-    public void registerBroker(MqttBrokerInfo info) {
-        Long brokerId = info.getId();
+    public void registerBroker(MqttBrokerDto info) {
+        Long brokerId = info.id();
 
         try {
-            MqttPahoMessageDrivenChannelAdapter adapter = new MqttPahoMessageDrivenChannelAdapter("4iren-"+brokerId, createClientFactory(info), info.getTopic());
+            MqttPahoMessageDrivenChannelAdapter adapter = new MqttPahoMessageDrivenChannelAdapter("4iren-"+brokerId, createClientFactory(info), info.topic());
             adapter.setQos(1);
             adapter.setManualAcks(true);
             adapter.setCompletionTimeout(10000);
@@ -61,9 +61,9 @@ public class MqttBrokerRegistry {
                     .register();
 
             registrations.put(brokerId, registration);
-            log.info("브로커 등록됨: brokerId({}), url({})", brokerId, info.getBrokerUrl());
+            log.info("브로커 등록됨: brokerId({}), url({})", brokerId, info.brokerUrl());
         } catch (Exception e) {
-            log.error("브로커 등록 실패: brokerId({}), url({})", brokerId, info.getBrokerUrl(), e);
+            log.error("브로커 등록 실패: brokerId({}), url({})", brokerId, info.brokerUrl(), e);
         }
     }
 
@@ -92,18 +92,18 @@ public class MqttBrokerRegistry {
         });
     }
 
-    private MqttPahoClientFactory createClientFactory(MqttBrokerInfo info) {
+    private MqttPahoClientFactory createClientFactory(MqttBrokerDto info) {
         DefaultMqttPahoClientFactory factory = new DefaultMqttPahoClientFactory();
         MqttConnectOptions options = new MqttConnectOptions();
 
-        options.setServerURIs(new String[]{info.getBrokerUrl()});
+        options.setServerURIs(new String[]{info.brokerUrl()});
         options.setAutomaticReconnect(true);
         options.setCleanSession(false);
         options.setConnectionTimeout(30);
         options.setKeepAliveInterval(60);
-        if (info.getUsername() != null) {
-            options.setUserName(info.getUsername());
-            options.setPassword(info.getPassword().toCharArray());
+        if (info.username() != null) {
+            options.setUserName(info.username());
+            options.setPassword(info.password().toCharArray());
         }
 
         factory.setConnectionOptions(options);

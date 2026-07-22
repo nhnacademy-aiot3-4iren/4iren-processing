@@ -4,7 +4,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.Expiry;
 import com.nhnacademy.processing.client.SensorContextClient;
-import com.nhnacademy.processing.dto.SensorContext;
+import com.nhnacademy.processing.dto.api.SensorContext;
 import com.nhnacademy.processing.exception.SensorContextNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
