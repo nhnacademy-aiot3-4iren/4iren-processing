@@ -25,7 +25,8 @@ public class SensorValidationRule {
 
     private Double maxValue;
 
-    public boolean isInRange(double value) {
-        return minValue <= value && maxValue >= value;
+    public void update(double minValue, double maxValue) {
+        this.minValue = minValue;
+        this.maxValue = maxValue;
     }
 }
