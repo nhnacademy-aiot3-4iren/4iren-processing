@@ -2,7 +2,7 @@ package com.nhnacademy.processing.service.mqtt;
 
 import com.nhnacademy.processing.dto.mqtt.MqttBrokerDto;
 import com.nhnacademy.processing.dto.sensor.ParsedSensorMessage;
-import com.nhnacademy.processing.service.process.SensorPayloadConverter;
+import com.nhnacademy.processing.service.converter.SensorPayloadConverter;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

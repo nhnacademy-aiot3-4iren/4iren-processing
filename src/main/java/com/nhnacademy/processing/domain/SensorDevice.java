@@ -11,23 +11,28 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-public class SensorDevices {
+public class SensorDevice {
 
     @Id
     @Column(nullable = false, length = 16)
     private String devEui;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "broker_id")
+    @JoinColumn(name = "broker_id", nullable = false)
     private MqttBrokerInfo mqttBrokerInfo;
 
+    @Column(length = 36, nullable = false)
     private String applicationId;
 
+    @Column(length = 100, nullable = false)
     private String applicationName;
 
+    @Column(length = 36, nullable = false)
     private String deviceProfileId;
 
+    @Column(length = 100, nullable = false)
     private String deviceName;
 
+    @Column(nullable = false)
     private Integer roomId;
 }

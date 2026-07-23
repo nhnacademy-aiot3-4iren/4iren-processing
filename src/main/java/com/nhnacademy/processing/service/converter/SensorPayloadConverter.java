@@ -1,4 +1,4 @@
-package com.nhnacademy.processing.service.process;
+package com.nhnacademy.processing.service.converter;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -66,11 +66,11 @@ public class SensorPayloadConverter {
     }
 
     private double toDouble(Object value) {
-        if (value instanceof Number num) return num.doubleValue();
-        if (value instanceof Boolean bool) return bool ? 1.0 : 0.0;
-        if (value instanceof String str) {
-            try { return Double.parseDouble(str); } catch (NumberFormatException ignored) {}
-        }
-        return 0.0;
+        return switch (value) {
+            case Number num -> num.doubleValue();
+            case Boolean bool -> bool ? 1.0 : 0.0;
+            case String str -> Double.parseDouble(str);
+            default -> 0.0;
+        };
     }
 }
