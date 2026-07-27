@@ -1,7 +1,7 @@
 package com.nhnacademy.processing.service.validation;
 
 import com.nhnacademy.processing.domain.SensorValidationRule;
-import com.nhnacademy.processing.dto.sensor.Rule;
+import com.nhnacademy.processing.dto.rule.Rule;
 import com.nhnacademy.processing.repository.SensorValidationRuleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

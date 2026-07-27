@@ -2,7 +2,7 @@ package com.nhnacademy.processing.dto.mqtt;
 
 import com.nhnacademy.processing.domain.MqttBrokerInfo;
 
-public record MqttBrokerDto (
+public record MqttBrokerInfoDto(
         long id,
         String serverName,
         String brokerUrl,
@@ -10,8 +10,8 @@ public record MqttBrokerDto (
         String password,
         String topic
 ) {
-    public static MqttBrokerDto from(MqttBrokerInfo info) {
-        return new MqttBrokerDto(
+    public static MqttBrokerInfoDto from(MqttBrokerInfo info) {
+        return new MqttBrokerInfoDto(
                 info.getId(),
                 info.getServerName(),
                 info.getBrokerUrl(),

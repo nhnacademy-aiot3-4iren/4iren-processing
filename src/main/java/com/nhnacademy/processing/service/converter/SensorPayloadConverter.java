@@ -3,10 +3,10 @@ package com.nhnacademy.processing.service.converter;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nhnacademy.processing.dto.mqtt.ChirpStackUplinkEvent;
-import com.nhnacademy.processing.dto.sensor.MeasurementCategory;
-import com.nhnacademy.processing.dto.sensor.DeviceIdentity;
-import com.nhnacademy.processing.dto.sensor.ParsedSensorMessage;
-import com.nhnacademy.processing.dto.sensor.SensorData;
+import com.nhnacademy.processing.dto.rule.MeasurementCategory;
+import com.nhnacademy.processing.dto.parse.DeviceIdentity;
+import com.nhnacademy.processing.dto.parse.ParsedSensorMessage;
+import com.nhnacademy.processing.dto.parse.SensorData;
 import com.nhnacademy.processing.exception.SensorPayloadParseException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -69,8 +69,16 @@ public class SensorPayloadConverter {
         return switch (value) {
             case Number num -> num.doubleValue();
             case Boolean bool -> bool ? 1.0 : 0.0;
-            case String str -> Double.parseDouble(str);
+            case String str -> strToDouble(str);
             default -> 0.0;
         };
+    }
+
+    private double strToDouble(String str) {
+        try {
+            return Double.parseDouble(str);
+        } catch (NumberFormatException e) {
+            return 0.0;
+        }
     }
 }

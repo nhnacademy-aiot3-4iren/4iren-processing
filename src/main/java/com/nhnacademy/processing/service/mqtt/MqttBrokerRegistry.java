@@ -1,8 +1,7 @@
 package com.nhnacademy.processing.service.mqtt;
 
-import com.nhnacademy.processing.dto.mqtt.MqttBrokerDto;
-import com.nhnacademy.processing.dto.sensor.ParsedSensorMessage;
-import com.nhnacademy.processing.service.converter.SensorPayloadConverter;
+import com.nhnacademy.processing.dto.mqtt.MqttBrokerInfoDto;
+import com.nhnacademy.processing.service.handler.SensorMessageHandler;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,7 +32,7 @@ public class MqttBrokerRegistry {
     private final ExecutorService mqttProcessingExecutor;
 
     private final Map<Long, IntegrationFlowContext.IntegrationFlowRegistration> registrations = new ConcurrentHashMap<>();
-    private final SensorPayloadConverter sensorPayloadConverter;
+    private final SensorMessageHandler sensorMessageHandler;
 
     @PostConstruct
     public void init() {
@@ -41,7 +40,7 @@ public class MqttBrokerRegistry {
         log.info("MQTT 브로커 {}개 등록 완료", registrations.size());
     }
 
-    public void registerBroker(MqttBrokerDto info) {
+    public void registerBroker(MqttBrokerInfoDto info) {
         Long brokerId = info.id();
 
         try {
@@ -81,18 +80,18 @@ public class MqttBrokerRegistry {
 
         mqttProcessingExecutor.submit(() -> {
             try {
-                ParsedSensorMessage parsedMessage = sensorPayloadConverter.convert(message.getPayload().toString());
-                log.info(parsedMessage.toString());
-                if (ackCallBack instanceof SimpleAcknowledgment ack) {
-                   ack.acknowledge();
-                }
+                sensorMessageHandler.handle(message);
             } catch (Exception e) {
-                log.error("메시지 처리 실패: brokerId({})", brokerId, e);
+                log.error("메시지 처리 중 예외 발생: brokerId({})", brokerId, e);
+            } finally {
+                if (ackCallBack instanceof SimpleAcknowledgment ack) {
+                    ack.acknowledge();
+                }
             }
         });
     }
 
-    private MqttPahoClientFactory createClientFactory(MqttBrokerDto info) {
+    private MqttPahoClientFactory createClientFactory(MqttBrokerInfoDto info) {
         DefaultMqttPahoClientFactory factory = new DefaultMqttPahoClientFactory();
         MqttConnectOptions options = new MqttConnectOptions();
 

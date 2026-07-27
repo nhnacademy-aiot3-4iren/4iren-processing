@@ -1,10 +1,9 @@
 package com.nhnacademy.processing.service.validation;
 
-import com.nhnacademy.processing.dto.sensor.Rule;
+import com.nhnacademy.processing.dto.rule.Rule;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;

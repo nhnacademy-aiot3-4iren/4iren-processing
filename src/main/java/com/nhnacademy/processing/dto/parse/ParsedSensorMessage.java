@@ -1,4 +1,4 @@
-package com.nhnacademy.processing.dto.sensor;
+package com.nhnacademy.processing.dto.parse;
 
 import java.time.Instant;
 import java.util.List;
