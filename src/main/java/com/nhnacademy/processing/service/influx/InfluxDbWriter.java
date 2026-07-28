@@ -33,17 +33,21 @@ public class InfluxDbWriter {
         writeApi.listenEvents(WriteErrorEvent.class, event -> log.error("InfluxDb 배치 쓰기 실패", event.getThrowable()));
     }
 
-    public void writeAsync(SensorData data, ParsedSensorMessage message, String roomId) {
+    public void writeAsync(SensorData data, ParsedSensorMessage message, int roomId) {
         SensorInfluxPointDto dto = toInfluxDto(data, message, roomId);
 
+        writeAsync(dto);
+    }
+
+    public void writeAsync(SensorInfluxPointDto dto) {
         try {
             writeApi.writePoint(toPoint(dto));
         } catch (Exception e) {
-            log.error("InfluxDB Point 생성 실패: measurement({}), devEui({})", dto.measurement(), dto.devEui());
+            log.error("InfluxDB Point 생성 실패: measurement({}), devEui({})", dto.measurement(), dto.devEui(), e);
         }
     }
 
-    private SensorInfluxPointDto toInfluxDto(SensorData data, ParsedSensorMessage message, String roomId) {
+    private SensorInfluxPointDto toInfluxDto(SensorData data, ParsedSensorMessage message, int roomId) {
         DeviceIdentity device = message.device();
         return new SensorInfluxPointDto(data.measurement(), data.value(),
                 message.measuredAt(),
@@ -58,7 +62,7 @@ public class InfluxDbWriter {
                 .addTag("application_id", dto.applicationId())
                 .addTag("dev_eui", dto.devEui())
                 .addTag("device_name", dto.deviceName())
-                .addTag("room_id", dto.roomId())
+                .addTag("room_id", String.valueOf(dto.roomId()))
                 .addField("value", dto.value());
     }
 
