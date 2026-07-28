@@ -17,9 +17,14 @@ public class MeasurementType {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(length = 50, nullable = false)
+    @Column(length = 50, nullable = false, unique = true)
     private String name;
 
     @Column(length = 10, nullable = false)
     private UnitType unit;
+
+    public MeasurementType(String name, UnitType unit) {
+        this.name = name;
+        this.unit = unit;
+    }
 }

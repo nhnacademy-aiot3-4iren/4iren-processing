@@ -80,7 +80,7 @@ public class MqttBrokerRegistry {
 
         mqttProcessingExecutor.submit(() -> {
             try {
-                sensorMessageHandler.handle(message);
+                sensorMessageHandler.handle(brokerId, message);
             } catch (Exception e) {
                 log.error("메시지 처리 중 예외 발생: brokerId({})", brokerId, e);
             } finally {

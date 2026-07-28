@@ -10,6 +10,7 @@ import com.nhnacademy.processing.service.es.SensorAnomalyLogService;
 import com.nhnacademy.processing.service.influx.InfluxDbWriter;
 import com.nhnacademy.processing.service.process.SensorContextResolver;
 import com.nhnacademy.processing.service.rabbitmq.RabbitMqPublisher;
+import com.nhnacademy.processing.service.sensor.SensorDeviceRegistry;
 import com.nhnacademy.processing.service.validation.SensorValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,8 +28,10 @@ public class SensorMessageHandler {
     private final RabbitMqPublisher rabbitMqPublisher;
     private final SensorValidator sensorValidator;
     private final SensorAnomalyLogService sensorAnomalyLogService;
+    private final SensorDeviceRegistry sensorDeviceRegistry;
 
-    public void handle(Message<?> message) {
+    public void handle(Long brokerId, Message<?> message) {
+        // mqtt 페이로드 파싱
         ParsedSensorMessage parsedMessage;
         try {
             parsedMessage = payloadConverter.convert(message.getPayload().toString());
@@ -37,12 +40,20 @@ public class SensorMessageHandler {
             return;
         }
 
+        // devEui로 roomId 획득
         String devEui = parsedMessage.device().devEui();
         SensorContext roomContext = contextResolver.resolve(devEui)
                 .orElseGet(() -> new SensorContext(devEui, -1, -1));
-
         int roomId = roomContext.roomId();
 
+        // 신규 센서 자동 등록
+        try{
+            sensorDeviceRegistry.ensureRegistered(parsedMessage, brokerId, roomId);
+        } catch (Exception e) {
+            log.error("센서 자동 등록 중 예외 발생: devEui({})", devEui, e);
+        }
+
+        // 센서 측정값 개별 순회 및 적재/라우팅
         parsedMessage.sensorDataList().forEach(data -> {
             try {
                 process(data, parsedMessage, roomId);
@@ -51,6 +62,7 @@ public class SensorMessageHandler {
             }
         });
     }
+
 
     private void process(SensorData data, ParsedSensorMessage message, int roomId) {
         switch (data.category()) {

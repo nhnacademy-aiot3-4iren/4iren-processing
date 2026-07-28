@@ -35,4 +35,10 @@ public class SensorMeasurement {
 
     @Column(nullable = false)
     private Boolean enabled;
+
+    public SensorMeasurement(SensorDevice sensorDevice, MeasurementType measurementType, Boolean enabled) {
+        this.sensorDevice = sensorDevice;
+        this.measurementType = measurementType;
+        this.enabled = enabled;
+    }
 }
