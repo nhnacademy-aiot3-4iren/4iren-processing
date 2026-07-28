@@ -47,7 +47,8 @@ public class SensorPayloadConverter {
                                                     event.deviceInfo().deviceProfileId(),
                                                     event.deviceInfo().deviceName(),
                                                     event.deviceInfo().devEui(),
-                                                    location);
+                                                    location,
+                                                    null);
         List<SensorData> sensorDataList = new ArrayList<>();
         event.object().forEach((measurement, rawValue) -> {
             if(ENV_MEASUREMENTS.contains(measurement)) {

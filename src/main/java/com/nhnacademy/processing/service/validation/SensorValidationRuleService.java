@@ -15,7 +15,6 @@ import java.util.stream.Collectors;
 public class SensorValidationRuleService {
 
     private final SensorValidationRuleRepository ruleRepository;
-    private final ValidationRuleRegistry validationRuleRegistry;
 
     @Transactional(readOnly = true)
     public Map<String, Rule> getRule() {
