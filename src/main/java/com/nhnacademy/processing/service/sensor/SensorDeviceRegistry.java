@@ -17,7 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequiredArgsConstructor
 public class SensorDeviceRegistry {
 
-    private final Set<String> knownDevices = ConcurrentHashMap.newKeySet();
+    private final ConcurrentHashMap<String, Boolean> knownDevices = new ConcurrentHashMap<>();
     private final Cache<String, Set<String>> knownMeasurementsCache = Caffeine.newBuilder()
             .maximumSize(10_000)
             .expireAfterWrite(Duration.ofHours(6))
@@ -28,10 +28,10 @@ public class SensorDeviceRegistry {
     public void ensureRegistered(ParsedSensorMessage message, Long brokerId, int roomId) {
         String devEui = message.device().devEui();
 
-        if(!knownDevices.contains(devEui)) {
-            sensorDeviceService.registerDeviceIfAbsent(message, devEui, brokerId, roomId);
-            knownDevices.add(devEui);
-        }
+        knownDevices.computeIfAbsent(devEui, key -> {
+            sensorDeviceService.registerDeviceIfAbsent(message, key, brokerId, roomId);
+            return Boolean.TRUE;
+        });
 
         registerMeasurementsIfAbsent(message, devEui);
     }

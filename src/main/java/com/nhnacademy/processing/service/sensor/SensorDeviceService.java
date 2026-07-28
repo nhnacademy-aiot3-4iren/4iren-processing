@@ -13,6 +13,7 @@ import com.nhnacademy.processing.repository.SensorMeasurementRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,8 +53,8 @@ public class SensorDeviceService {
 
             sensorDeviceRepository.save(entity);
             log.info("신규 센서 기기 등록 완료: devEui({}), deviceName({}), roomId({})", devEui, deviceIdentity.deviceName(), roomId);
-        } catch (DataIntegrityViolationException e) {
-            log.debug("센서 기기 동시 등록 경합 발생 (무시 가능): devEui({})", devEui);
+        } catch (DataIntegrityViolationException | PessimisticLockingFailureException e) {
+                log.debug("센서 기기 동시 등록 경합 발생 (무시 가능): devEui({})", devEui);
         }
     }
 
