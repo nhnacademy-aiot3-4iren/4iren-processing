@@ -6,6 +6,7 @@ import com.nhnacademy.processing.domain.SensorMeasurement;
 import com.nhnacademy.processing.dto.parse.DeviceIdentity;
 import com.nhnacademy.processing.dto.parse.ParsedSensorMessage;
 import com.nhnacademy.processing.dto.parse.SensorData;
+import com.nhnacademy.processing.dto.sensor.SensorInfoResponse;
 import com.nhnacademy.processing.repository.MeasurementTypeRepository;
 import com.nhnacademy.processing.repository.MqttBrokerInfoRepository;
 import com.nhnacademy.processing.repository.SensorDeviceRepository;
@@ -18,8 +19,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -77,8 +82,45 @@ public class SensorDeviceService {
     @Transactional(readOnly = true)
     public Set<String> loadKnownMeasurements(String devEui) {
         Set<String> set = ConcurrentHashMap.newKeySet();
-        sensorMeasurementRepository.findAllBySensorDevice_DevEui(devEui)
+        sensorMeasurementRepository.findAllByDevEuiWithMeasurementType(devEui)
                 .forEach(m -> set.add(m.getMeasurementType().getName()));
         return set;
+    }
+
+    @Transactional(readOnly = true)
+    public List<SensorInfoResponse> getSensorTopologyByRoomId(int roomId) {
+        List<SensorDevice> devices = sensorDeviceRepository.findAllByRoomId(roomId);
+        List<SensorMeasurement> measurements = sensorMeasurementRepository.findAllActiveMeasurementsByRoomId(roomId);
+
+        return mapToDtoList(devices, measurements);
+    }
+
+    // ================== 내부 조립(Mapping) 로직 ==================
+    private List<SensorInfoResponse> mapToDtoList(List<SensorDevice> devices, List<SensorMeasurement> measurements) {
+
+        // 1. devEui별로 측정항목(Map<측정명, 단위>) 그룹핑
+        // 예: "devEui123" -> { "co2": "ppm", "temperature": "°C" }
+        Map<String, Map<String, String>> measurementsByDevEui = measurements.stream()
+                .collect(Collectors.groupingBy(
+                        sm -> sm.getSensorDevice().getDevEui(),
+                        Collectors.toMap(
+                                sm -> sm.getMeasurementType().getName(),
+                                sm -> {
+                                    var unit = sm.getMeasurementType().getUnit();
+                                    return unit != null ? unit.getSymbol() : ""; // 단위가 없으면 빈 문자열
+                                },
+                                (existing, replacement) -> existing // 중복 시 기존 값 유지
+                        )
+                ));
+
+        // 2. SensorDevice 정보를 DTO로 변환하여 리스트로 반환
+        return devices.stream()
+                .map(device -> new SensorInfoResponse(
+                        device.getRoomId(), // 새로 추가된 roomId 매핑
+                        device.getDevEui(),
+                        device.getDeviceName(),
+                        measurementsByDevEui.getOrDefault(device.getDevEui(), Collections.emptyMap())
+                ))
+                .collect(Collectors.toList());
     }
 }

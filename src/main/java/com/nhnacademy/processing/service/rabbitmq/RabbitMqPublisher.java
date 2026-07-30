@@ -12,7 +12,6 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class RabbitMqPublisher {
 
-    // todo: RabbitMQ로 룰엔진만 아니라 AI predict로도 보내야 할건데 어떻게 할건지?
     @Value("${spring.rabbitmq.template.exchange}")
     private String exchange;
     @Value("${spring.rabbitmq.template.routing-key}")

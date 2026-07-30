@@ -27,6 +27,11 @@ spring:
       exchange: ${RABBIT_EXCHANGE_NAME}
       routing-key: ${RABBIT_ROUTING_KEY}
 
+  elasticsearch:
+    uris: http://s4.java21.net:9200
+    username: elastic
+    password: nhnacademy123!
+
 management:
   endpoints:
     web:

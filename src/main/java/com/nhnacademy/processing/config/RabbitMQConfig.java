@@ -1,7 +1,7 @@
 package com.nhnacademy.processing.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.amqp.core.DirectExchange;
+import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
@@ -17,8 +17,8 @@ public class RabbitMQConfig {
     private String exchange;
 
     @Bean
-    public DirectExchange sensorExchange() {
-        return new DirectExchange(exchange, true, false);
+    public TopicExchange sensorExchange() {
+        return new TopicExchange(exchange, true, false);
     }
 
     @Bean

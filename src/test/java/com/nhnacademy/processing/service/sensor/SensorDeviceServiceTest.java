@@ -146,7 +146,7 @@ class SensorDeviceServiceTest {
         SensorMeasurement m1 = new SensorMeasurement(device, co2Type, true);
         SensorMeasurement m2 = new SensorMeasurement(device, tempType, true);
 
-        when(sensorMeasurementRepository.findAllBySensorDevice_DevEui(DEV_EUI)).thenReturn(List.of(m1, m2));
+        when(sensorMeasurementRepository.findAllByDevEuiWithMeasurementType(DEV_EUI)).thenReturn(List.of(m1, m2));
 
         Set<String> result = service.loadKnownMeasurements(DEV_EUI);
 
