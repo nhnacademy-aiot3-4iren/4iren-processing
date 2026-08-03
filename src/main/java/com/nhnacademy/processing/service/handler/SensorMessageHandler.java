@@ -17,6 +17,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.Message;
 import org.springframework.stereotype.Component;
 
+/**
+ * 개별 SensorData 순회 -> 카테고리/유효성에 따른 분류 -> DB 저장 / RabbitMQ 발행.
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -30,40 +33,18 @@ public class SensorMessageHandler {
     private final SensorAnomalyLogService sensorAnomalyLogService;
     private final SensorDeviceRegistry sensorDeviceRegistry;
 
-    public void handle(Long brokerId, Message<?> message) {
-        // mqtt 페이로드 파싱
-        ParsedSensorMessage parsedMessage;
-        try {
-            parsedMessage = payloadConverter.convert(message.getPayload().toString());
-        } catch (Exception e) {
-            log.error("메시지 파싱 실패", e);
-            return;
-        }
+    public void processAll(ParsedSensorMessage message, int roomId) {
+        String devEui = message.device().devEui();
 
-        // devEui로 roomId 획득
-        String devEui = parsedMessage.device().devEui();
-        SensorContext roomContext = contextResolver.resolve(devEui)
-                .orElseGet(() -> new SensorContext(devEui, -1, -1));
-        int roomId = roomContext.roomId();
-
-        // 신규 센서 자동 등록
-        try{
-            sensorDeviceRegistry.ensureRegistered(parsedMessage, brokerId, roomId);
-        } catch (Exception e) {
-            log.error("센서 자동 등록 중 예외 발생: devEui({})", devEui, e);
-        }
-
-        // 센서 측정값 개별 순회 및 적재/라우팅
-        parsedMessage.sensorDataList().forEach(data -> {
+        message.sensorDataList().forEach(data -> {
             try {
-                process(data, parsedMessage, roomId);
+                process(data, message, roomId);
             } catch (Exception e) {
                 log.error("측정값 처리 실패: measurement({}), devEui({})", data.measurement(), devEui, e);
             }
         });
     }
-
-
+    
     private void process(SensorData data, ParsedSensorMessage message, int roomId) {
         switch (data.category()) {
             case NETWORK_QUALITY -> {
