@@ -1,0 +1,23 @@
+server:
+  port: 8085
+
+spring:
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    listener:
+      simple:
+        concurrency: 5
+        max-concurrency: 15
+        acknowledge-mode: auto
+    template:
+      exchange: 4iren.sensor.exchange
+      routing-key: 4iren.processed.*
+
+influx:
+  url: http://localhost:8086
+  token: avDAoog9o9P3Z80aCxFvQJGwwMATJCkuBjZBvCqu6pJXggyo5apJqvqlG3PQFonP5htnItXnc-Ol7Xd54yNSlg==
+  org: iot-lab
+  bucket: test
