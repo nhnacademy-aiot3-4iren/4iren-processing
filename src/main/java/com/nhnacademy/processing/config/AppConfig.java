@@ -26,17 +26,17 @@ public class AppConfig {
         return mapper;
     }
 
-    @Bean
-    public RestClient sensorContextRestClient(@Value("${sensor-context.base-url}") String baseUrl) {
-        ClientHttpRequestFactorySettings settings = ClientHttpRequestFactorySettings.defaults()
-                .withConnectTimeout(Duration.ofSeconds(2))
-                .withReadTimeout(Duration.ofSeconds(2));
-
-        ClientHttpRequestFactory requestFactory  = ClientHttpRequestFactoryBuilder.detect().build(settings);
-
-        return RestClient.builder()
-                .baseUrl(baseUrl)
-                .requestFactory(requestFactory)
-                .build();
-    }
+//    @Bean
+//    public RestClient sensorContextRestClient(@Value("${sensor-context.base-url}") String baseUrl) {
+//        ClientHttpRequestFactorySettings settings = ClientHttpRequestFactorySettings.defaults()
+//                .withConnectTimeout(Duration.ofSeconds(2))
+//                .withReadTimeout(Duration.ofSeconds(2));
+//
+//        ClientHttpRequestFactory requestFactory  = ClientHttpRequestFactoryBuilder.detect().build(settings);
+//
+//        return RestClient.builder()
+//                .baseUrl(baseUrl)
+//                .requestFactory(requestFactory)
+//                .build();
+//    }
 }

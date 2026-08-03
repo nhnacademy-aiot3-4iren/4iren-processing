@@ -12,14 +12,13 @@ import org.springframework.web.client.RestClient;
 @RequiredArgsConstructor
 public class SensorContextClient {
 
-    private final RestClient sensorContextRestClient;
+//    private final RestClient sensorContextRestClient;
+
+    private final CoreClient coreClient;
 
     public SensorContext fetch(String devEui) {
         try {
-            return sensorContextRestClient.get()
-                    .uri("/internal/sensors/{devEui}/telemetry-context", devEui)
-                    .retrieve()
-                    .body(SensorContext.class);
+            return coreClient.fetch(devEui);
         } catch (HttpClientErrorException.NotFound e) {
             throw new SensorContextNotFoundException(devEui);
         } catch (HttpClientErrorException.BadRequest e) {

@@ -28,7 +28,7 @@
     </scm>
     <properties>
         <java.version>21</java.version>
-        <spring-cloud.version>2023.0.0</spring-cloud.version>
+        <spring-cloud.version>2025.0.3</spring-cloud.version>
     </properties>
 
     <dependencyManagement>
@@ -170,6 +170,14 @@
             <groupId>org.awaitility</groupId>
             <artifactId>awaitility</artifactId>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-openfeign</artifactId>
         </dependency>
     </dependencies>
 

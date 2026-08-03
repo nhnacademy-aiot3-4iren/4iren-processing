@@ -32,3 +32,6 @@ build/
 ### VS Code ###
 .vscode/
 /.env
+/.env_2
+
+src/main/resources/application-dev.yaml
