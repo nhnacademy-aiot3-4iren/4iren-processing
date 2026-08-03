@@ -1,0 +1,133 @@
+name: PR Code Quality Check & Telegram Notification
+
+# 스크립트 실행 시기
+on:
+  pull_request:
+    # pr 생성, pr 업데이트(코드 변경), 리뷰어 지정 시 발생
+    types: [opened, synchronize, review_requested]
+    # develop이나 main에 pr을 하려고 할때
+    branches: [ "main", "develop" ]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+env:
+  PROJECT_KEY: "4iren-processing"
+
+jobs:
+  build-and-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Telegram으로 PR 알림 보내기
+        # PR을 처음 생성하거나 리뷰어를 지정했을 때만 텔레그램 알림 전송
+        if: github.event.action == 'opened' || github.event.action == 'review_requested'
+        uses: F2had/pr-telegram-action@v1.0.0
+        with:
+          bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+      - name: 코드 가져오기
+        uses: actions/checkout@v3
+        with:
+          # 깃 히스토리 가져오기
+          fetch-depth: 0
+
+      - name: JDK 21 세팅
+        uses: actions/setup-java@v3
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Maven 실행 권한 부여
+        run: chmod +x ./mvnw
+
+      # develop 브랜치 소나큐브 적용 (실패 시 최대 3회 재시도)
+      - name: 코드 빌드 및 소나큐브 분석 (Develop)
+        if: github.base_ref == 'develop'
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 10
+          max_attempts: 3        # 최대 3번 시도
+          retry_wait_seconds: 5  # 실패하면 5초 쉬었다가 다시 시도
+          command: >
+            ./mvnw clean verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
+            -Djacoco.haltOnFailure=false
+            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} 
+            -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+            -Dsonar.projectKey=${{ env.PROJECT_KEY }}
+
+      # main 브랜치 소나큐브 적용 (실패 시 최대 3회 재시도)
+      - name: 코드 빌드 및 소나큐브 분석 (Main)
+        if: github.base_ref == 'main'
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 10
+          max_attempts: 3        # 최대 3번 시도
+          retry_wait_seconds: 5  # 실패하면 5초 쉬었다가 다시 시도
+          command: >
+            ./mvnw clean verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
+            -Djacoco.haltOnFailure=true
+            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} 
+            -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+            -Dsonar.projectKey=${{ env.PROJECT_KEY }}
+            -Dsonar.qualitygate.wait=true
+
+      # 커버리지 결과 파일(xml)에서 결과 추출
+      - name: JaCoCo 커버리지 퍼센트 추출 (Python 파싱)
+        if: always()
+        run: |
+          JACOCO_FILE=$(find . -name "jacoco.xml" -path "*/target/site/jacoco/jacoco.xml" | head -n 1)
+
+          if [ -n "$JACOCO_FILE" ]; then
+            # 들여쓰기 에러를 막기 위해 파이썬 코드를 한 줄로 압축했습니다.
+            COVERAGE=$(python3 -c "import xml.etree.ElementTree as ET; root = ET.parse('$JACOCO_FILE').getroot(); c = [int(n.attrib.get('covered',0)) for n in root if n.tag=='counter' and n.attrib.get('type')=='LINE']; m = [int(n.attrib.get('missed',0)) for n in root if n.tag=='counter' and n.attrib.get('type')=='LINE']; t = c[0]+m[0] if c else 0; print(f'{(c[0]/t)*100:.1f}' if t>0 else '0.0')" 2>/dev/null || echo "0.0")
+            echo "COVERAGE_PERCENT=$COVERAGE" >> $GITHUB_ENV
+          else
+            echo "COVERAGE_PERCENT=0.0" >> $GITHUB_ENV
+          fi
+
+      # 1. 성공 시 댓글 (초록색)
+      - name: PR에 소나큐브 링크 댓글 작성 (성공)
+        uses: marocchino/sticky-pull-request-comment@v2
+        if: success() # 빌드/검사가 성공했을 때만 작동
+        with:
+          header: sonarqube-report
+          recreate: true
+          message: |
+            ### ✅ PR 품질 검사 통과!
+            - 타깃 브랜치: `${{ github.base_ref }}`
+            - 분석 결과: `Success` 🟢
+            - 📈 **현재 커버리지: `${{ env.COVERAGE_PERCENT }}%`**
+            
+            훌륭합니다! 모든 커버리지와 테스트를 통과했습니다.
+            
+            📊 **소나큐브 상세 리포트 확인하러 가기**
+            - 🏢 [**내부망에서 접속 시 클릭**](<http://10.116.64.14:9000/dashboard?id=${{ env.PROJECT_KEY }}&codeScope=overall>)
+            - 🏠 [**외부망에서 접속 시 클릭**](<${{ secrets.SONAR_HOST_URL }}dashboard?id=${{ env.PROJECT_KEY }}&codeScope=overall>)
+
+      # 2. 실패 시 댓글 (빨간색 가이드)
+      - name: PR에 소나큐브 링크 댓글 작성 (실패)
+        uses: marocchino/sticky-pull-request-comment@v2
+        if: failure() # 빌드/검사 중 하나라도 실패했을 때만 작동
+        with:
+          header: sonarqube-report
+          recreate: true
+          message: |
+            ### 🚨 PR 품질 검사 실패!
+            - 타깃 브랜치: `${{ github.base_ref }}`
+            - 분석 결과: `Failure` 🔴
+            - 📈 **현재 커버리지: `${{ env.COVERAGE_PERCENT }}%`**
+            
+            **[🤔 실패 원인 추측 (아래 중 하나일 확률이 높습니다)]**
+            1. **전체 커버리지 60% 미달**: JaCoCo 컷에 걸렸습니다. 테스트 코드를 더 작성하세요!
+            2. **새로운 코드 커버리지 미달**: 소나큐브 80% 컷에 걸렸습니다. (새로 짠 코드의 테스트 부족)
+            3. **컴파일/테스트 에러**: 작성하신 코드 자체에 버그가 있거나 테스트가 실패했습니다.
+            
+            정확한 원인은 하단의 깃허브 액션 `Details` 로그나, 아래 소나큐브 리포트에서 확인하세요!
+            
+            📊 **소나큐브 상세 리포트 확인하러 가기**
+            - 🏢 [**내부망에서 접속 시 클릭**](<http://10.116.64.14:9000/dashboard?id=${{ env.PROJECT_KEY }}&codeScope=overall>)
+            - 🏠 [**외부망에서 접속 시 클릭**](<${{ secrets.SONAR_HOST_URL }}dashboard?id=${{ env.PROJECT_KEY }}&codeScope=overall>)

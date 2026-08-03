@@ -44,7 +44,7 @@ public class MqttBrokerRegistry {
         Long brokerId = info.id();
 
         try {
-            MqttPahoMessageDrivenChannelAdapter adapter = new MqttPahoMessageDrivenChannelAdapter("4iren-"+brokerId, createClientFactory(info), info.topic());
+            MqttPahoMessageDrivenChannelAdapter adapter = new MqttPahoMessageDrivenChannelAdapter("4iren-"+brokerId+1, createClientFactory(info), info.topic());
             adapter.setQos(1);
             adapter.setManualAcks(true);
             adapter.setCompletionTimeout(10000);

@@ -6,7 +6,7 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://s4.java21.net:13306/aiot03_team4
     username: aiot03_team4
-    password: Yky2!)i0b-h6kYwZ
+    password: ${MYSQL_PASSWORD}
     type: org.apache.commons.dbcp2.BasicDataSource
   jpa:
     hibernate:
@@ -30,7 +30,7 @@ spring:
   elasticsearch:
     uris: http://s4.java21.net:9200
     username: elastic
-    password: nhnacademy123!
+    password: ${ELASTICSEARCH_PASSWORD}
 
 management:
   endpoints:
@@ -47,5 +47,12 @@ influx:
   org: ${INFLUX_ORG}
   bucket: ${INFLUX_BUCKET}
 
-sensor-context:
-  base-url: http://localhost:8081
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+
