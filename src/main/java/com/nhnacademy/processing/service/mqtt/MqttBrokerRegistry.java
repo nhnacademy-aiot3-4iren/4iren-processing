@@ -1,7 +1,7 @@
 package com.nhnacademy.processing.service.mqtt;
 
+import com.nhnacademy.processing.config.integration.SensorMessageHeaders;
 import com.nhnacademy.processing.dto.mqtt.MqttBrokerInfoDto;
-import com.nhnacademy.processing.service.handler.SensorMessageHandler;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,13 +15,19 @@ import org.springframework.integration.mqtt.core.DefaultMqttPahoClientFactory;
 import org.springframework.integration.mqtt.core.MqttPahoClientFactory;
 import org.springframework.integration.mqtt.inbound.MqttPahoMessageDrivenChannelAdapter;
 import org.springframework.integration.mqtt.support.DefaultPahoMessageConverter;
+import org.springframework.integration.support.MessageBuilder;
 import org.springframework.messaging.Message;
+import org.springframework.messaging.MessageChannel;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 
+/**
+ * MQTT 브로커별 동적 어댑터 등록/해제
+ * sensorInputChannel로 메시지를 넘김
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -32,7 +38,9 @@ public class MqttBrokerRegistry {
     private final ExecutorService mqttProcessingExecutor;
 
     private final Map<Long, IntegrationFlowContext.IntegrationFlowRegistration> registrations = new ConcurrentHashMap<>();
-    private final SensorMessageHandler sensorMessageHandler;
+
+    //private final SensorMessageHandler sensorMessageHandler;
+    private final MessageChannel sensorInputChannel;
 
     @PostConstruct
     public void init() {
@@ -80,7 +88,11 @@ public class MqttBrokerRegistry {
 
         mqttProcessingExecutor.submit(() -> {
             try {
-                sensorMessageHandler.handle(brokerId, message);
+//                sensorMessageHandler.handle(brokerId, message);
+                Message<?> withBrokerId = MessageBuilder.fromMessage(message)
+                        .setHeader(SensorMessageHeaders.BROKER_ID, brokerId)
+                        .build();
+                sensorInputChannel.send(withBrokerId);
             } catch (Exception e) {
                 log.error("메시지 처리 중 예외 발생: brokerId({})", brokerId, e);
             } finally {
