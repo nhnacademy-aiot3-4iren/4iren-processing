@@ -1,4 +1,4 @@
-package com.nhnacademy.processing.config.integration;
+package com.nhnacademy.processing.integration;
 
 /**
  * 센서 처리 파이프라인 전반에서 사용하는 Message Header 키 상수.

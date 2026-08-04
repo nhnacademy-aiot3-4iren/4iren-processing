@@ -1,6 +1,6 @@
 package com.nhnacademy.processing.service.mqtt;
 
-import com.nhnacademy.processing.config.integration.SensorMessageHeaders;
+import com.nhnacademy.processing.integration.SensorMessageHeaders;
 import com.nhnacademy.processing.dto.mqtt.MqttBrokerInfoDto;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttException;

@@ -1,4 +1,4 @@
-package com.nhnacademy.processing.config.integration;
+package com.nhnacademy.processing.integration;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

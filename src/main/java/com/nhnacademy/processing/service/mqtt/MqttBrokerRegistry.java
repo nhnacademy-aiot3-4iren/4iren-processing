@@ -1,7 +1,7 @@
 package com.nhnacademy.processing.service.mqtt;
 
-import com.nhnacademy.processing.config.integration.SensorErrorFlowConfig;
-import com.nhnacademy.processing.config.integration.SensorMessageHeaders;
+import com.nhnacademy.processing.integration.SensorErrorFlowConfig;
+import com.nhnacademy.processing.integration.SensorMessageHeaders;
 import com.nhnacademy.processing.dto.mqtt.MqttBrokerInfoDto;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;

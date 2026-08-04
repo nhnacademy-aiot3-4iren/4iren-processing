@@ -1,4 +1,4 @@
-package com.nhnacademy.processing.config.integration;
+package com.nhnacademy.processing.integration;
 
 import com.nhnacademy.processing.dto.parse.ParsedSensorMessage;
 import com.nhnacademy.processing.dto.parse.SensorData;

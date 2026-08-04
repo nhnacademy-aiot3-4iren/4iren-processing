@@ -1,4 +1,4 @@
-package com.nhnacademy.processing.config.integration;
+package com.nhnacademy.processing.integration;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
