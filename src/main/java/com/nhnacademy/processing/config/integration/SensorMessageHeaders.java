@@ -8,7 +8,7 @@ public final class SensorMessageHeaders {
 
     private SensorMessageHeaders() {}
 
-    /** 메시지를 수신한 MQTT 브로커 ID (SensorDeviceRegistry.ensureRegistered 등에서 사용) */
+    /** 메시지를 수신한 MQTT 브로커 ID */
     public static final String BROKER_ID = "brokerId";
 
     /** SensorContextResolver로 조회한 roomId. 조회 실패 시 -1 */
