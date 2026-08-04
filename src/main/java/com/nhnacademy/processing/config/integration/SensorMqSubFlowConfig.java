@@ -5,7 +5,6 @@ import com.nhnacademy.processing.service.handler.SensorMessageHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.integration.dsl.IntegrationFlow;
-import org.springframework.messaging.MessageHandler;
 
 /**
  * MQ Sub-flow
@@ -18,7 +17,7 @@ public class SensorMqSubFlowConfig {
     @Bean
     public IntegrationFlow sensorMqSubFlow(SensorMessageHandler sensorMessageHandler) {
         return IntegrationFlow.from("sensorPubSubChannel")
-                .handle((MessageHandler) message -> {
+                .handle(message -> {
                     ParsedSensorMessage parsed = (ParsedSensorMessage) message.getPayload();
                     Integer roomId = message.getHeaders().get(SensorMessageHeaders.ROOM_ID, Integer.class);
                     sensorMessageHandler.publishAll(parsed, roomId);

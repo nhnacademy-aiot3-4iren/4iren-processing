@@ -1,5 +1,6 @@
 package com.nhnacademy.processing.service.mqtt;
 
+import com.nhnacademy.processing.config.integration.SensorErrorFlowConfig;
 import com.nhnacademy.processing.config.integration.SensorMessageHeaders;
 import com.nhnacademy.processing.dto.mqtt.MqttBrokerInfoDto;
 import jakarta.annotation.PostConstruct;
@@ -39,8 +40,8 @@ public class MqttBrokerRegistry {
 
     private final Map<Long, IntegrationFlowContext.IntegrationFlowRegistration> registrations = new ConcurrentHashMap<>();
 
-    //private final SensorMessageHandler sensorMessageHandler;
     private final MessageChannel sensorInputChannel;
+    private final MessageChannel sensorErrorChannel;
 
     @PostConstruct
     public void init() {
@@ -88,13 +89,12 @@ public class MqttBrokerRegistry {
 
         mqttProcessingExecutor.submit(() -> {
             try {
-//                sensorMessageHandler.handle(brokerId, message);
                 Message<?> withBrokerId = MessageBuilder.fromMessage(message)
                         .setHeader(SensorMessageHeaders.BROKER_ID, brokerId)
                         .build();
                 sensorInputChannel.send(withBrokerId);
             } catch (Exception e) {
-                log.error("메시지 처리 중 예외 발생: brokerId({})", brokerId, e);
+                sensorErrorChannel.send(MessageBuilder.withPayload(new SensorErrorFlowConfig.ProcessingFailure(brokerId, e)).build());
             } finally {
                 if (ackCallBack instanceof SimpleAcknowledgment ack) {
                     ack.acknowledge();

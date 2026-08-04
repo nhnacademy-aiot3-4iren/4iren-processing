@@ -30,4 +30,9 @@ public class SensorIntegrationChannelConfig {
     public MessageChannel sensorPubSubChannel() {
         return new PublishSubscribeChannel();
     }
+
+    @Bean
+    public MessageChannel sensorErrorChannel() {
+        return new DirectChannel();
+    }
 }

@@ -15,12 +15,12 @@ import org.springframework.integration.dsl.IntegrationFlow;
  * DB Sub-flow
  *
  * sensorPubSubChannel(ParsedSensorMessage)을 구독해서
- *   -> [Splitter] sensorDataList()를 개별 SensorData로 분할
- *   -> [Router]   category / 검증 결과에 따라 normal/anomaly로 분기
- *       - NETWORK_QUALITY, DEVICE_HEALTH : 검증 없이 항상 normal (기존 process() switch와 동일)
- *       - ENVIRONMENT                    : SensorValidator.validate() 결과가 VALID면 normal, 아니면 anomaly
+ *   -> [Splitter] sensorDataList()를 개별 SensorData로 분할하면서, ENVIRONMENT 항목은
+ *                 이 시점에 SensorValidator.validate()를 호출해 결과를 같이 묶음
+ *                 (ValidatedSensorData). NETWORK_QUALITY/DEVICE_HEALTH는 검증 대상이 아니므로 status=null.
+ *   -> [Router]   status가 null이거나 VALID면 normal, 그 외(OUT_OF_RANGE/NO_RULE_DEFINED)면 anomaly
  *   -> normal  : InfluxDbWriter.writeAsync()
- *   -> anomaly : SensorAnomalyLogService.log() (ENVIRONMENT 중 OUT_OF_RANGE/NO_RULE_DEFINED만 여기로 온다)
+ *   -> anomaly : SensorAnomalyLogService.log() — Router가 이미 계산해둔 status를 그대로 재사용(재검증 없음)
  */
 @Configuration
 public class SensorDbSubFlowConfig {
@@ -28,35 +28,37 @@ public class SensorDbSubFlowConfig {
     private static final String NORMAL = "normal";
     private static final String ANOMALY = "anomaly";
 
+    private record ValidatedSensorData(SensorData data, ValidationStatus status) {}
+
     @Bean
-    public IntegrationFlow sensorDbSubFlow(
-            SensorValidator sensorValidator,
-            InfluxDbWriter influxDbWriter,
-            SensorAnomalyLogService anomalyLogService) {
+    public IntegrationFlow sensorDbSubFlow(SensorValidator sensorValidator,
+                                           InfluxDbWriter influxDbWriter,
+                                           SensorAnomalyLogService anomalyLogService) {
 
         return IntegrationFlow.from("sensorPubSubChannel")
-                // 1. Splitter: ParsedSensorMessage -> 개별 SensorData
-                .split(ParsedSensorMessage.class, ParsedSensorMessage::sensorDataList)
+                // 1. Splitter: ParsedSensorMessage -> ValidatedSensorData 리스트로 분할
+                .split(ParsedSensorMessage.class, parsed -> parsed.sensorDataList().stream()
+                        .map(data -> new ValidatedSensorData(
+                                data,
+                                data.category() == MeasurementCategory.ENVIRONMENT
+                                        ? sensorValidator.validate(data)
+                                        : null))
+                        .toList())
 
-                // 2. Router: category / 검증 결과에 따라 normal, anomaly로 분기
-                .<SensorData, String>route(data -> {
-                            if (data.category() == MeasurementCategory.ENVIRONMENT) {
-                                return sensorValidator.validate(data) == ValidationStatus.VALID ? NORMAL : ANOMALY;
-                            }
-                            return NORMAL; // NETWORK_QUALITY, DEVICE_HEALTH
-                        },
+                // 2. Router: status가 null(검증 대상 아님) 또는 VALID면 normal, 아니면 anomaly
+                .<ValidatedSensorData, String>route(
+                        vd -> vd.status() == null || vd.status() == ValidationStatus.VALID ? NORMAL : ANOMALY,
                         mapping -> mapping
-                                .subFlowMapping(NORMAL, sub -> sub.handle(SensorData.class, (data, headers) -> {
+                                .subFlowMapping(NORMAL, sub -> sub.handle(ValidatedSensorData.class, (vd, headers) -> {
                                     ParsedSensorMessage parsed = headers.get(SensorMessageHeaders.PARSED_MESSAGE, ParsedSensorMessage.class);
                                     Integer roomId = headers.get(SensorMessageHeaders.ROOM_ID, Integer.class);
-                                    influxDbWriter.writeAsync(data, parsed, roomId);
+                                    influxDbWriter.writeAsync(vd.data(), parsed, roomId);
                                     return null; // 종착점, 리턴 메시지 없음
                                 }))
-                                .subFlowMapping(ANOMALY, sub -> sub.handle(SensorData.class, (data, headers) -> {
+                                .subFlowMapping(ANOMALY, sub -> sub.handle(ValidatedSensorData.class, (vd, headers) -> {
                                     ParsedSensorMessage parsed = headers.get(SensorMessageHeaders.PARSED_MESSAGE, ParsedSensorMessage.class);
                                     Integer roomId = headers.get(SensorMessageHeaders.ROOM_ID, Integer.class);
-                                    ValidationStatus status = sensorValidator.validate(data);
-                                    anomalyLogService.log(data, parsed.device().devEui(), roomId, status, parsed.measuredAt());
+                                    anomalyLogService.log(vd.data(), parsed.device().devEui(), roomId, vd.status(), parsed.measuredAt());
                                     return null;
                                 }))
                 )
