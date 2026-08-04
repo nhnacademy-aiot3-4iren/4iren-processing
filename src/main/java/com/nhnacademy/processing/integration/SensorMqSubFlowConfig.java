@@ -35,7 +35,10 @@ public class SensorMqSubFlowConfig {
                                            RabbitTemplate rabbitTemplate,
                                            @Value("${spring.rabbitmq.template.exchange}") String exchange,
                                            @Value("${spring.rabbitmq.template.routing-key}") String routingKey) {
+        // 1. PubSub 채널에서 복사본 수신
         return IntegrationFlow.from("sensorPubSubChannel")
+
+                // 2. 유효한 데이터만 추려서 새 ParsedSensorMessage 생성
                 .handle(ParsedSensorMessage.class, (parsed, headers) -> {
                     Integer roomId = headers.get(SensorMessageHeaders.ROOM_ID, Integer.class);
                     if(roomId == null || roomId < 0) {
@@ -61,6 +64,8 @@ public class SensorMqSubFlowConfig {
                     );
                     return new ParsedSensorMessage(newDevice, publishable, parsed.measuredAt());
                 })
+
+                // 3. AMQP Outbound Adapter로 RabbitMQ 발행
                 .handle(Amqp.outboundAdapter(rabbitTemplate)
                         .exchangeName(exchange)
                         .routingKey(routingKey)

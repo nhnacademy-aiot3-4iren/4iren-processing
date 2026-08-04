@@ -6,6 +6,7 @@ import com.nhnacademy.processing.service.converter.SensorPayloadConverter;
 import com.nhnacademy.processing.service.process.SensorContextResolver;
 import com.nhnacademy.processing.service.sensor.SensorDeviceRegistry;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.integration.dsl.IntegrationFlow;
@@ -32,14 +33,15 @@ public class SensorIntegrationFlowConfig {
     public IntegrationFlow sensorProcessingFlow(SensorPayloadConverter payloadConverter,
                                                 SensorContextResolver contextResolver,
                                                 SensorDeviceRegistry sensorDeviceRegistry,
-                                                MessageChannel sensorErrorChannel) {
+                                                @Qualifier("sensorErrorChannel") MessageChannel sensorErrorChannel) {
+        // 1. SensorInputChannel에서 원시 MQTT 메시지 받아옴
         return IntegrationFlow.from("sensorInputChannel")
                 .wireTap("sensorLoggingChannel")
 
-                // 1. Transformer: String -> ParsedSensorMessage (brokerId 헤더는 자동으로 유지됨)
+                // 2. Raw JSON String -> ParsedSensorMessage 객체로 파싱
                 .transform(payloadConverter, "convert")
 
-                // 2. Header Enricher: devEui로 roomId 조회
+                // 3. devEui로 roomId를 조회해서 메시지 헤더에 roomId 세팅
                 .enrichHeaders(h -> h.headerFunction(SensorMessageHeaders.ROOM_ID, message -> {
                     ParsedSensorMessage parsed = (ParsedSensorMessage) message.getPayload();
                     String devEui = parsed.device().devEui();
@@ -48,7 +50,7 @@ public class SensorIntegrationFlowConfig {
                     return context.roomId();
                 }))
 
-                // 3. Service Activator: 신규 기기/측정항목 등록. 등록 실패는 sensorErrorChannel로 보내고 통과
+                // 4. 디바이스 DB 등록 서비스 호출
                 .handle(ParsedSensorMessage.class, (payload, headers) -> {
                     Long brokerId = headers.get(SensorMessageHeaders.BROKER_ID, Long.class);
                     Integer roomId = headers.get(SensorMessageHeaders.ROOM_ID, Integer.class);
@@ -60,10 +62,10 @@ public class SensorIntegrationFlowConfig {
                     return payload;
                 })
 
-                // 4. Header Enricher: DB Sub-flow의 Splitter 이후에도 device/measuredAt 정보를 쓸 수 있도록 원본 ParsedSensorMessage을 헤더로 복사
+                // 5. Splitter로 메시지가 쪼개져도 원본 객체를 알 수 있게 헤더에 ParsedSensorMessage 저장
                 .enrichHeaders(h -> h.headerFunction(SensorMessageHeaders.PARSED_MESSAGE, Message::getPayload))
 
-                // 5. DB 저장/ RabbitMQ 발행으로 fan-out
+                // 6. 다음 채널로 전송
                 .channel("sensorPubSubChannel")
                 .get();
     }
