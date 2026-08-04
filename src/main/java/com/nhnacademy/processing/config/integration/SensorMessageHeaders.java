@@ -13,4 +13,7 @@ public final class SensorMessageHeaders {
 
     /** SensorContextResolver로 조회한 roomId. 조회 실패 시 -1 */
     public static final String ROOM_ID = "roomId";
+
+    /** Splitter로 쪼개지기 전의 원본 ParsedSensorMessage. */
+    public static final String PARSED_MESSAGE = "parsedMessage";
 }

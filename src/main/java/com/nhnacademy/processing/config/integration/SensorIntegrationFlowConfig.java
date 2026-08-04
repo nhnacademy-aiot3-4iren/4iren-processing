@@ -15,10 +15,11 @@ import org.springframework.messaging.MessageHandler;
 /**
  * 센서 처리 파이프라인 SI 진입 Flow
  * MqttBrokerRegistry -> sensorInputChannel
- *   -> [Transformer]      Raw String Payload -> ParsedSensorMessage        (SensorPayloadConverter)
- *   -> [Header Enricher]  devEui -> roomId 조회 후 헤더에 세팅               (SensorContextResolver, 캐시 그대로 유지)
+ *   -> [Transformer]      Raw String Payload -> ParsedSensorMessage    (SensorPayloadConverter)
+ *   -> [Header Enricher]  devEui -> roomId 조회 후 헤더에 세팅             (SensorContextResolver, 캐시 그대로 유지)
  *   -> [Service Activator] 신규 기기/측정항목 등록, 통과만 시킴               (SensorDeviceRegistry)
- *   -> [Service Activator] 측정값 단위 처리(저장/발행), 여기서 흐름 종료      (SensorMessageHandler.processAll, 임시 종착점)
+ *   -> [Header Enricher]  원본 ParsedSensorMessage를 헤더로 복사           (Splitter 대비)
+ *   -> sensorPubSubChannel (DB 저장 / RabbitMQ 발행으로 fan-out)
 
  */
 @Slf4j
@@ -57,12 +58,11 @@ public class SensorIntegrationFlowConfig {
                     return payload; // 다음 단계로 그대로 전달
                 })
 
-                // 4. 교체 예정
-                .handle((MessageHandler) message -> {
-                    ParsedSensorMessage parsed = (ParsedSensorMessage) message.getPayload();
-                    Integer roomId = message.getHeaders().get(SensorMessageHeaders.ROOM_ID, Integer.class);
-                    sensorMessageHandler.processAll(parsed, roomId);
-                })
+                // 4. Header Enricher: DB Sub-flow의 Splitter 이휴에도 device/measuredAt 정보를 쓸 수 있ㄷ록 원본을 헤더로 복사
+                .enrichHeaders(h -> h.headerFunction(SensorMessageHeaders.PARSED_MESSAGE, message -> message.getPayload()))
+
+                // 5. DB 저장/ RabbitMQ 발행으로 fan-out
+                .channel("sensorPubSubChannel")
                 .get();
     }
 

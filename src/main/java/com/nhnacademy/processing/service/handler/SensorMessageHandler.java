@@ -1,20 +1,13 @@
 package com.nhnacademy.processing.service.handler;
 
-import com.nhnacademy.processing.dto.api.SensorContext;
 import com.nhnacademy.processing.dto.parse.DeviceIdentity;
 import com.nhnacademy.processing.dto.parse.ParsedSensorMessage;
 import com.nhnacademy.processing.dto.parse.SensorData;
 import com.nhnacademy.processing.dto.rule.ValidationStatus;
-import com.nhnacademy.processing.service.converter.SensorPayloadConverter;
-import com.nhnacademy.processing.service.es.SensorAnomalyLogService;
-import com.nhnacademy.processing.service.influx.InfluxDbWriter;
-import com.nhnacademy.processing.service.process.SensorContextResolver;
 import com.nhnacademy.processing.service.rabbitmq.RabbitMqPublisher;
-import com.nhnacademy.processing.service.sensor.SensorDeviceRegistry;
 import com.nhnacademy.processing.service.validation.SensorValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.messaging.Message;
 import org.springframework.stereotype.Component;
 
 /**
@@ -25,50 +18,30 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class SensorMessageHandler {
 
-    private final SensorPayloadConverter payloadConverter;
-    private final SensorContextResolver contextResolver;
-    private final InfluxDbWriter influxDbWriter;
     private final RabbitMqPublisher rabbitMqPublisher;
     private final SensorValidator sensorValidator;
-    private final SensorAnomalyLogService sensorAnomalyLogService;
-    private final SensorDeviceRegistry sensorDeviceRegistry;
 
-    public void processAll(ParsedSensorMessage message, int roomId) {
+    public void publishAll(ParsedSensorMessage message, int roomId) {
         String devEui = message.device().devEui();
-
         message.sensorDataList().forEach(data -> {
             try {
-                process(data, message, roomId);
+                switch (data.category()) {
+                    case DEVICE_HEALTH -> {
+                        publishIfRoomKnown(data, message, roomId);
+                    }
+                    case ENVIRONMENT -> {
+                        if(ValidationStatus.VALID.equals(sensorValidator.validate(data))) {
+                            publishIfRoomKnown(data, message, roomId);
+                        }
+                    }
+                    case NETWORK_QUALITY -> {
+
+                    }
+                }
             } catch (Exception e) {
-                log.error("측정값 처리 실패: measurement({}), devEui({})", data.measurement(), devEui, e);
+                log.error("RabbitMQ 발행 처리 실패: measurement({}), devEui({})", data.measurement(), devEui, e);
             }
         });
-    }
-    
-    private void process(SensorData data, ParsedSensorMessage message, int roomId) {
-        switch (data.category()) {
-            case NETWORK_QUALITY -> {
-                influxDbWriter.writeAsync(data, message, roomId);
-            }
-            case DEVICE_HEALTH -> {
-                influxDbWriter.writeAsync(data, message, roomId);
-                publishIfRoomKnown(data, message, roomId);
-            }
-            case ENVIRONMENT -> {
-                processEnvironment(data, message, roomId);
-            }
-        }
-    }
-
-    private void processEnvironment(SensorData data, ParsedSensorMessage message, int roomId) {
-        ValidationStatus status = sensorValidator.validate(data);
-
-        if (ValidationStatus.VALID.equals(status)) {
-            influxDbWriter.writeAsync(data, message, roomId);
-            publishIfRoomKnown(data, message, roomId);
-        } else {
-            sensorAnomalyLogService.log(data, message.device().devEui(), roomId, status, message.measuredAt());
-        }
     }
 
     private void publishIfRoomKnown(SensorData data, ParsedSensorMessage parsed, int roomId) {
