@@ -63,3 +63,7 @@ eureka:
   instance:
     prefer-ip-address: true
 
+processing:
+  alert:
+    out-of-range:
+      threshold: 5
