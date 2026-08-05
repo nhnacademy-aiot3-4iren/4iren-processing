@@ -24,7 +24,7 @@ public class NotificationPublisher {
     @Value("${processing.rabbitmq.routing-key.anomaly}")
     private String routingKey;
 
-    public void publish(Long roomId, String devEui, String measurement, Double value, Instant detectedAt) {
+    public void publish(Integer roomId, String devEui, String measurement, Double value, Instant detectedAt) {
         AlertEvent event = new AlertEvent(
                 roomId,
                 AlertType.SENSOR_ANOMALY.name(),

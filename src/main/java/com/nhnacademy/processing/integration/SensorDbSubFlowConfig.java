@@ -4,6 +4,8 @@ import com.nhnacademy.processing.dto.parse.ParsedSensorMessage;
 import com.nhnacademy.processing.dto.parse.SensorData;
 import com.nhnacademy.processing.dto.rule.MeasurementCategory;
 import com.nhnacademy.processing.dto.rule.ValidationStatus;
+import com.nhnacademy.processing.service.alert.NotificationPublisher;
+import com.nhnacademy.processing.service.alert.ThresholdChecker;
 import com.nhnacademy.processing.service.es.SensorAnomalyLogService;
 import com.nhnacademy.processing.service.influx.InfluxDbWriter;
 import com.nhnacademy.processing.service.validation.SensorValidator;
@@ -15,12 +17,11 @@ import org.springframework.integration.dsl.IntegrationFlow;
  * DB Sub-flow
  *
  * sensorPubSubChannel(ParsedSensorMessage)을 구독해서
- *   -> [Splitter] sensorDataList()를 개별 SensorData로 분할하면서, ENVIRONMENT 항목은
- *                 이 시점에 SensorValidator.validate()를 호출해 결과를 같이 묶음
+ *   -> [Splitter] sensorDataList()를 개별 SensorData로 분할하면서, ENVIRONMENT 항목은 SensorValidator.validate()를 호출해 결과를 같이 묶음
  *                 (ValidatedSensorData). NETWORK_QUALITY/DEVICE_HEALTH는 검증 대상이 아니므로 status=null.
- *   -> [Router]   status가 null이거나 VALID면 normal, 그 외(OUT_OF_RANGE/NO_RULE_DEFINED)면 anomaly
+ *   -> [Router]   status가 null이거나 VALID면 normal, 그 외는 anomaly
  *   -> normal  : InfluxDbWriter.writeAsync()
- *   -> anomaly : SensorAnomalyLogService.log() — Router가 이미 계산해둔 status를 그대로 재사용(재검증 없음)
+ *   -> anomaly : SensorAnomalyLogService.log() 후 OUT_OF_RANGE면 조건부 NotificationPublisher.publish()
  */
 @Configuration
 public class SensorDbSubFlowConfig {
@@ -33,7 +34,9 @@ public class SensorDbSubFlowConfig {
     @Bean
     public IntegrationFlow sensorDbSubFlow(SensorValidator sensorValidator,
                                            InfluxDbWriter influxDbWriter,
-                                           SensorAnomalyLogService anomalyLogService) {
+                                           SensorAnomalyLogService anomalyLogService,
+                                           ThresholdChecker thresholdChecker,
+                                           NotificationPublisher notificationPublisher) {
 
         return IntegrationFlow.from("sensorPubSubChannel")
                 // 1. Splitter: ParsedSensorMessage -> ValidatedSensorData 리스트로 분할
@@ -58,7 +61,21 @@ public class SensorDbSubFlowConfig {
                                 .subFlowMapping(ANOMALY, sub -> sub.handle(ValidatedSensorData.class, (vd, headers) -> {
                                     ParsedSensorMessage parsed = headers.get(SensorMessageHeaders.PARSED_MESSAGE, ParsedSensorMessage.class);
                                     Integer roomId = headers.get(SensorMessageHeaders.ROOM_ID, Integer.class);
+                                    String devEui = parsed.device().devEui();
                                     anomalyLogService.log(vd.data(), parsed.device().devEui(), roomId, vd.status(), parsed.measuredAt());
+
+                                    if(vd.status == ValidationStatus.OUT_OF_RANGE) {
+                                        String measurement = vd.data.measurement();
+                                        if(thresholdChecker.shouldAlert(devEui, measurement)) {
+                                            notificationPublisher.publish(
+                                                    roomId,
+                                                    devEui,
+                                                    measurement,
+                                                    vd.data.value(),
+                                                    parsed.measuredAt()
+                                            );
+                                        }
+                                    }
                                     return null;
                                 }))
                 )

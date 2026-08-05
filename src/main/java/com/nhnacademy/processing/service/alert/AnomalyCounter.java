@@ -22,7 +22,7 @@ public class AnomalyCounter {
 
     private final StringRedisTemplate redisTemplate;
 
-    public long increment(String namespace, String key) {
+    public long incrementAndGet(String namespace, String key) {
         String redisKey = countKey(namespace, key);
         Long count = redisTemplate.opsForValue().increment(redisKey);
         if (count != null && count == 1L) {

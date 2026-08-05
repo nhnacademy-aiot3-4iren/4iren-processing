@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.List;
 
 public record AlertEvent (
-        Long roomId,
+        Integer roomId,
         String alertType,
         String alertTitle,
 

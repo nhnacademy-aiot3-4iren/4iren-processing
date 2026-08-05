@@ -20,7 +20,7 @@ public class ThresholdChecker {
     public boolean shouldAlert(String devEui, String measurement) {
         String key = counterKey(devEui, measurement);
         try {
-            long count = anomalyCounter.increment(NAMESPACE, key);
+            long count = anomalyCounter.incrementAndGet(NAMESPACE, key);
             if (count < threshold) {
                 return false;
             }
@@ -30,15 +30,6 @@ public class ThresholdChecker {
             log.error("Threshold 판단 실패, 알림 스킵: devEui({}), measurement({})",
                     devEui, measurement, e);
             return false;
-        }
-    }
-
-    public void resetOnRecovery(String devEui, String measurement) {
-        try {
-            anomalyCounter.reset(NAMESPACE, counterKey(devEui, measurement));
-        } catch (Exception e) {
-            log.error("Threshold 카운터 리셋 실패 (다음 TTL 만료 때 자연 정리됨): devEui({}), measurement({})",
-                    devEui, measurement, e);
         }
     }
 
