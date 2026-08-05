@@ -13,6 +13,13 @@ spring:
       ddl-auto: update
     show-sql: true
 
+  data:
+    redis:
+      host: 220.67.216.14
+      port: 6379
+      database: 334
+      password: ${REDIS_PASSWORD}
+
   rabbitmq:
     host: ${RABBIT_HOST}
     port: ${RABBIT_PORT}
