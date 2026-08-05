@@ -34,7 +34,7 @@ public class SensorMqSubFlowConfig {
     public IntegrationFlow sensorMqSubFlow(SensorValidator sensorValidator,
                                            RabbitTemplate rabbitTemplate,
                                            @Value("${spring.rabbitmq.template.exchange}") String exchange,
-                                           @Value("${spring.rabbitmq.template.routing-key}") String routingKey) {
+                                           @Value("${processing.rabbitmq.routing-key.normal}") String routingKey) {
         // 1. PubSub 채널에서 복사본 수신
         return IntegrationFlow.from("sensorPubSubChannel")
 
