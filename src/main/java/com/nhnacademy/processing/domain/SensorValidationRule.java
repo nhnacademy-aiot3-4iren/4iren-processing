@@ -19,7 +19,7 @@ public class SensorValidationRule {
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "measurement_id", nullable = false, unique = true)
-    private MeasurementType measurementType;
+    private MetricType measurementType;
 
     private Double minValue;
 

@@ -18,9 +18,9 @@ public class SensorValidationRuleService {
 
     @Transactional(readOnly = true)
     public Map<String, Rule> getRule() {
-        return ruleRepository.findAll().stream()
+        return ruleRepository.findAllWithMetricTypeAndUnit().stream()
                 .collect(Collectors.toMap(
-                        rule -> rule.getMeasurementType().getName(),
+                        rule -> rule.getMeasurementType().getCode(),
                         Rule::from
                 ));
     }

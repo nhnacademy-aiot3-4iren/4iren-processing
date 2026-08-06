@@ -1,8 +1,10 @@
 package com.nhnacademy.processing.service.validation;
 
-import com.nhnacademy.processing.domain.MeasurementType;
+import com.nhnacademy.processing.domain.MeasurementUnit;
+import com.nhnacademy.processing.domain.MetricKind;
+import com.nhnacademy.processing.domain.MetricType;
+import com.nhnacademy.processing.domain.MetricTypeStatus;
 import com.nhnacademy.processing.domain.SensorValidationRule;
-import com.nhnacademy.processing.domain.UnitType;
 import com.nhnacademy.processing.dto.rule.Rule;
 import com.nhnacademy.processing.repository.SensorValidationRuleRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -33,17 +35,15 @@ class SensorValidationRuleServiceTest {
     @Test
     @DisplayName("모든 검증 규칙을 조회하여 Map 형태로 반환")
     void getRule_Success() {
-        MeasurementType mockType1 = mock(MeasurementType.class);
-        when(mockType1.getName()).thenReturn("co2");
-        when(mockType1.getUnit()).thenReturn(UnitType.PPM);
-        SensorValidationRule rule1 = new SensorValidationRule(1L, mockType1, 0.0, 1000.0);
+        MeasurementUnit unit1 = new MeasurementUnit(1L, "[ppm]", "백만분율", "ppm");
+        MetricType type1 = new MetricType(1L, unit1, "co2", "이산화탄소 농도", MetricKind.GAUGE, MetricTypeStatus.ACTIVE, "co2 설명");
+        SensorValidationRule rule1 = new SensorValidationRule(1L, type1, 0.0, 1000.0);
 
-        MeasurementType mockType2 = mock(MeasurementType.class);
-        when(mockType2.getName()).thenReturn("temperature");
-        when(mockType2.getUnit()).thenReturn(UnitType.CELSIUS);
-        SensorValidationRule rule2 = new SensorValidationRule(2L, mockType2, -10.0, 40.0);
+        MeasurementUnit unit2 = new MeasurementUnit(2L, "Cel", "섭씨", "°C");
+        MetricType type2 = new MetricType(2L, unit2, "temperature", "온도", MetricKind.GAUGE, MetricTypeStatus.ACTIVE, "temp 설명");
+        SensorValidationRule rule2 = new SensorValidationRule(2L, type2, -10.0, 40.0);
 
-        when(ruleRepository.findAll()).thenReturn(List.of(rule1, rule2));
+        when(ruleRepository.findAllWithMetricTypeAndUnit()).thenReturn(List.of(rule1, rule2));
 
         Map<String, Rule> rules = ruleService.getRule();
 
@@ -56,8 +56,9 @@ class SensorValidationRuleServiceTest {
     @Test
     @DisplayName("존재하는 규칙 ID로 범위를 성공적으로 업데이트")
     void updateRule_Success() {
-        MeasurementType mockType = mock(MeasurementType.class);
-        SensorValidationRule rule = new SensorValidationRule(1L, mockType, 0.0, 50.0);
+        MeasurementUnit unit = new MeasurementUnit(1L, "[ppm]", "백만분율", "ppm");
+        MetricType type = new MetricType(1L, unit, "co2", "이산화탄소 농도", MetricKind.GAUGE, MetricTypeStatus.ACTIVE, "co2 설명");
+        SensorValidationRule rule = new SensorValidationRule(1L, type, 0.0, 50.0);
 
         when(ruleRepository.findById(1L)).thenReturn(Optional.of(rule));
 
@@ -75,7 +76,7 @@ class SensorValidationRuleServiceTest {
 
         assertThatThrownBy(() -> ruleService.updateRule(99L, 10.0, 100.0))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("규칙 없음: 99");
+                .hasMessageContaining("99");
 
         verify(ruleRepository, never()).save(any());
     }

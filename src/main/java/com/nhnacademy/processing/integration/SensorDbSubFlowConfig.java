@@ -64,14 +64,14 @@ public class SensorDbSubFlowConfig {
                                     String devEui = parsed.device().devEui();
                                     anomalyLogService.log(vd.data(), parsed.device().devEui(), roomId, vd.status(), parsed.measuredAt());
 
-                                    if(vd.status == ValidationStatus.OUT_OF_RANGE) {
-                                        String measurement = vd.data.measurement();
-                                        if(thresholdChecker.shouldAlert(devEui, measurement)) {
+                                    if (vd.status() == ValidationStatus.OUT_OF_RANGE) {
+                                        String measurement = vd.data().measurement();
+                                        if (thresholdChecker.shouldAlert(devEui, measurement)) {
                                             notificationPublisher.publish(
                                                     roomId,
                                                     devEui,
                                                     measurement,
-                                                    vd.data.value(),
+                                                    vd.data().value(),
                                                     parsed.measuredAt()
                                             );
                                         }

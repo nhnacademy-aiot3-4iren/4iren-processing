@@ -31,14 +31,21 @@ public class SensorMeasurement {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "measurement_id", nullable = false)
-    private MeasurementType measurementType;
+    private MetricType measurementType;
 
     @Column(nullable = false)
     private Boolean enabled;
 
-    public SensorMeasurement(SensorDevice sensorDevice, MeasurementType measurementType, Boolean enabled) {
+    public SensorMeasurement(SensorDevice sensorDevice, MetricType measurementType) {
         this.sensorDevice = sensorDevice;
         this.measurementType = measurementType;
-        this.enabled = enabled;
+        this.enabled = true;
+    }
+
+    public void enable() {
+        this.enabled = true;
+    }
+    public void disable() {
+        this.enabled = false;
     }
 }

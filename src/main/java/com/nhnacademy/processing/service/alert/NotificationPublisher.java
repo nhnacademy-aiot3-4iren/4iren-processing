@@ -35,7 +35,7 @@ public class NotificationPublisher {
                         value
                 )),
                 detectedAt,
-                "P" + UUID.randomUUID()
+                UUID.randomUUID().toString()
         );
 
         try {

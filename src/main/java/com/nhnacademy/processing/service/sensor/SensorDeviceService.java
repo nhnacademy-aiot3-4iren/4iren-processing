@@ -1,13 +1,12 @@
 package com.nhnacademy.processing.service.sensor;
 
-import com.nhnacademy.processing.domain.MqttBrokerInfo;
-import com.nhnacademy.processing.domain.SensorDevice;
-import com.nhnacademy.processing.domain.SensorMeasurement;
+import com.nhnacademy.processing.domain.*;
 import com.nhnacademy.processing.dto.parse.DeviceIdentity;
 import com.nhnacademy.processing.dto.parse.ParsedSensorMessage;
 import com.nhnacademy.processing.dto.parse.SensorData;
+import com.nhnacademy.processing.dto.sensor.MetricTypeResponse;
 import com.nhnacademy.processing.dto.sensor.SensorInfoResponse;
-import com.nhnacademy.processing.repository.MeasurementTypeRepository;
+import com.nhnacademy.processing.repository.MetricTypeRepository;
 import com.nhnacademy.processing.repository.MqttBrokerInfoRepository;
 import com.nhnacademy.processing.repository.SensorDeviceRepository;
 import com.nhnacademy.processing.repository.SensorMeasurementRepository;
@@ -33,7 +32,7 @@ public class SensorDeviceService {
 
     private final SensorDeviceRepository sensorDeviceRepository;
     private final MqttBrokerInfoRepository mqttBrokerInfoRepository;
-    private final MeasurementTypeRepository measurementTypeRepository;
+    private final MetricTypeRepository metricTypeRepository;
     private final SensorMeasurementRepository sensorMeasurementRepository;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -65,10 +64,10 @@ public class SensorDeviceService {
 
     @Transactional
     public void registerMeasurement(String devEui, SensorData data, Set<String> known) {
-        measurementTypeRepository.findByName(data.measurement()).ifPresentOrElse(type -> {
+        metricTypeRepository.findByCode(data.measurement()).ifPresentOrElse(type -> {
             try {
                 SensorDevice deviceProxy = sensorDeviceRepository.getReferenceById(devEui);
-                SensorMeasurement measurement = new SensorMeasurement(deviceProxy, type, true);
+                SensorMeasurement measurement = new SensorMeasurement(deviceProxy, type);
 
                 sensorMeasurementRepository.save(measurement);
                 known.add(data.measurement());
@@ -83,7 +82,7 @@ public class SensorDeviceService {
     public Set<String> loadKnownMeasurements(String devEui) {
         Set<String> set = ConcurrentHashMap.newKeySet();
         sensorMeasurementRepository.findAllByDevEuiWithMeasurementType(devEui)
-                .forEach(m -> set.add(m.getMeasurementType().getName()));
+                .forEach(m -> set.add(m.getMeasurementType().getCode()));
         return set;
     }
 
@@ -95,16 +94,48 @@ public class SensorDeviceService {
         return mapToDtoList(devices, measurements);
     }
 
+    @Transactional(readOnly = true)
+    public List<MetricTypeResponse> getMetricTypesByDevEui(String devEui) {
+        List<SensorMeasurement> measurements =
+                sensorMeasurementRepository.findAllByDevEuiWithMetricTypeAndUnit(devEui);
+
+        return measurements.stream()
+                .map(MetricTypeResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<MetricTypeResponse> getAllMetricCatalog() {
+        return metricTypeRepository.findAllWithUnit().stream()
+                .map(MetricTypeResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, List<MetricTypeResponse>> getMetricTypesByDevEuis(List<String> devEuis) {
+        if (devEuis == null || devEuis.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        List<SensorMeasurement> measurements =
+                sensorMeasurementRepository.findAllByDevEuiInWithMetricTypeAndUnit(devEuis);
+
+        return measurements.stream()
+                .collect(Collectors.groupingBy(
+                        sm -> sm.getSensorDevice().getDevEui(),
+                        Collectors.mapping(MetricTypeResponse::from, Collectors.toList())
+                ));
+    }
+
     // ================== 내부 조립(Mapping) 로직 ==================
     private List<SensorInfoResponse> mapToDtoList(List<SensorDevice> devices, List<SensorMeasurement> measurements) {
 
         // 1. devEui별로 측정항목(Map<측정명, 단위>) 그룹핑
-        // 예: "devEui123" -> { "co2": "ppm", "temperature": "°C" }
         Map<String, Map<String, String>> measurementsByDevEui = measurements.stream()
                 .collect(Collectors.groupingBy(
                         sm -> sm.getSensorDevice().getDevEui(),
                         Collectors.toMap(
-                                sm -> sm.getMeasurementType().getName(),
+                                sm -> sm.getMeasurementType().getCode(),
                                 sm -> {
                                     var unit = sm.getMeasurementType().getUnit();
                                     return unit != null ? unit.getSymbol() : ""; // 단위가 없으면 빈 문자열
@@ -121,6 +152,6 @@ public class SensorDeviceService {
                         device.getDeviceName(),
                         measurementsByDevEui.getOrDefault(device.getDevEui(), Collections.emptyMap())
                 ))
-                .collect(Collectors.toList());
+                .toList();
     }
 }

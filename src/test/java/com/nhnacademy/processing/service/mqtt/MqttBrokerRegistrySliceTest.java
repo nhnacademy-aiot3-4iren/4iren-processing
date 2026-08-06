@@ -74,15 +74,15 @@ class MqttBrokerRegistrySliceTest {
 
     @AfterEach
     void tearDown() throws MqttException {
-        if (testPublisher.isConnected()) {
+        if (testPublisher != null && testPublisher.isConnected()) {
             testPublisher.disconnect();
+            testPublisher.close();
         }
-        testPublisher.close();
     }
 
     @Test
     @DisplayName("동적으로 등록한 브로커를 통해 메시지 수신 시 Header에 brokerId를 담아 sensorInputChannel로 전달")
-    void handleMessage_Success() throws MqttException {
+    void handleMessage_Success() throws Exception {
         MqttBrokerInfoDto info = sampleDto(1L, brokerUrl, "test/topic/#");
         registry.registerBroker(info);
 
