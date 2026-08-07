@@ -20,10 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.Instant;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -234,7 +231,7 @@ class SensorDeviceServiceTest {
 
         assertThat(responses).hasSize(2);
 
-        MetricTypeResponse r1 = responses.get(0);
+        MetricTypeResponse r1 = responses.getFirst();
         assertThat(r1.metricCode()).isEqualTo("co2");
         assertThat(r1.displayName()).isEqualTo("이산화탄소");
         assertThat(r1.metricKind()).isEqualTo("GAUGE");
@@ -258,5 +255,80 @@ class SensorDeviceServiceTest {
         List<MetricTypeResponse> responses = service.getMetricTypesByDevEui(DEV_EUI);
 
         assertThat(responses).isEmpty();
+    }
+
+    @Test
+    @DisplayName("전체 메트릭 카탈로그 목록 정상 조회")
+    void getAllMetricCatalog_Success() {
+        MeasurementUnit unitPpm = new MeasurementUnit(1L, "[ppm]", "백만분율", "ppm");
+        MetricType co2Type = new MetricType(1L, unitPpm, "co2", "이산화탄소", MetricKind.GAUGE, MetricTypeStatus.ACTIVE, "co2");
+
+        MeasurementUnit unitCel = new MeasurementUnit(2L, "Cel", "섭씨", "°C");
+        MetricType tempType = new MetricType(2L, unitCel, "temperature", "온도", MetricKind.GAUGE, MetricTypeStatus.ACTIVE, "temp");
+
+        when(metricTypeRepository.findAllWithUnit()).thenReturn(List.of(co2Type, tempType));
+
+        List<MetricTypeResponse> responses = service.getAllMetricCatalog();
+
+        assertThat(responses).hasSize(2);
+
+        MetricTypeResponse res1 = responses.getFirst();
+        assertThat(res1.metricCode()).isEqualTo("co2");
+        assertThat(res1.unitDisplayName()).isEqualTo("백만분율");
+
+        MetricTypeResponse res2 = responses.get(1);
+        assertThat(res2.metricCode()).isEqualTo("temperature");
+        assertThat(res2.symbol()).isEqualTo("°C");
+    }
+
+    @Test
+    @DisplayName("다수의 devEui 목록으로 메트릭 타입 정보 그룹 조회")
+    void getMetricTypesByDevEuis_Success() {
+        String devEui1 = "devEui1";
+        String devEui2 = "devEui2";
+        List<String> devEuis = List.of(devEui1, devEui2);
+
+        SensorDevice device1 = mock(SensorDevice.class);
+        when(device1.getDevEui()).thenReturn(devEui1);
+
+        SensorDevice device2 = mock(SensorDevice.class);
+        when(device2.getDevEui()).thenReturn(devEui2);
+
+        MeasurementUnit unit1 = new MeasurementUnit(1L, "[ppm]", "백만분율", "ppm");
+        MetricType co2Type = new MetricType(1L, unit1, "co2", "이산화탄소", MetricKind.GAUGE, MetricTypeStatus.ACTIVE, "co2");
+
+        MeasurementUnit unit2 = new MeasurementUnit(2L, "Cel", "섭씨", "°C");
+        MetricType tempType = new MetricType(2L, unit2, "temperature", "온도", MetricKind.GAUGE, MetricTypeStatus.ACTIVE, "temp");
+
+        SensorMeasurement m1 = new SensorMeasurement(1L, device1, co2Type, true);
+        SensorMeasurement m2 = new SensorMeasurement(2L, device1, tempType, true);
+        SensorMeasurement m3 = new SensorMeasurement(3L, device2, co2Type, true); // device2는 co2만 측정
+
+        when(sensorMeasurementRepository.findAllByDevEuiInWithMetricTypeAndUnit(devEuis))
+                .thenReturn(List.of(m1, m2, m3));
+
+        Map<String, List<MetricTypeResponse>> result = service.getMetricTypesByDevEuis(devEuis);
+
+        assertThat(result).hasSize(2);
+
+        assertThat(result.get(devEui1)).hasSize(2);
+        assertThat(result.get(devEui1).stream().map(MetricTypeResponse::metricCode))
+                .containsExactlyInAnyOrder("co2", "temperature");
+
+        assertThat(result.get(devEui2)).hasSize(1);
+        assertThat(result.get(devEui2).getFirst().metricCode()).isEqualTo("co2");
+    }
+
+    @Test
+    @DisplayName("devEuis 리스트가 null이거나 비어있으면 빈 Map을 반환한다")
+    void getMetricTypesByDevEuis_Empty() {
+        // When
+        Map<String, List<MetricTypeResponse>> resultEmpty = service.getMetricTypesByDevEuis(List.of());
+        Map<String, List<MetricTypeResponse>> resultNull = service.getMetricTypesByDevEuis(null);
+
+        // Then
+        assertThat(resultEmpty).isEmpty();
+        assertThat(resultNull).isEmpty();
+        verify(sensorMeasurementRepository, never()).findAllByDevEuiInWithMetricTypeAndUnit(any());
     }
 }
