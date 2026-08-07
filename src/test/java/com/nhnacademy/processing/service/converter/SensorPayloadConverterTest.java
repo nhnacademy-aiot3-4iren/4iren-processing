@@ -94,7 +94,7 @@ class SensorPayloadConverterTest {
 
         assertThat(message.measuredAt()).isNotNull();
         assertThat(message.device().devEui()).isEqualTo("24e124725d081175");
-        assertThat(message.device().location()).isEqualTo("사무실");
+        assertThat(message.device().point()).isEqualTo("업무 공간 안쪽");
 
         List<SensorData> dataList = message.sensorDataList();
 

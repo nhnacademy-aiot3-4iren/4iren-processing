@@ -77,7 +77,7 @@ class SensorIntegrationFlowTest {
 
     @BeforeEach
     void setUp() {
-        mockDevice = new DeviceIdentity("app1", "appName", "prof1", "deviceName", "devEui123", "loc", VALID_ROOM_ID);
+        mockDevice = new DeviceIdentity("app1", "appName", "prof1", "deviceName", "devEui123", VALID_ROOM_ID, "point");
 
         when(contextResolver.resolve("devEui123")).thenReturn(Optional.of(new SensorContext("devEui123", VALID_ROOM_ID, 1)));
         doNothing().when(sensorDeviceRegistry).ensureRegistered(any(), any(), anyInt());
@@ -140,7 +140,7 @@ class SensorIntegrationFlowTest {
         sendRawPayload();
 
         verify(notificationPublisher, times(1)).publish(
-                eq(VALID_ROOM_ID), eq("devEui123"), eq("temperature"), eq(999.0), any());
+                eq(mockDevice), eq("temperature"), eq(999.0), any());
     }
 
     @Test
@@ -155,7 +155,7 @@ class SensorIntegrationFlowTest {
 
         sendRawPayload();
 
-        verify(notificationPublisher, never()).publish(any(), any(), any(), any(), any());
+        verify(notificationPublisher, never()).publish(any(), any(), any(), any());
     }
 
     @Test
@@ -171,7 +171,7 @@ class SensorIntegrationFlowTest {
 
         verify(anomalyLogService, times(1)).log(eq(unruledEnvData), eq("devEui123"), eq(VALID_ROOM_ID), eq(ValidationStatus.NO_RULE_DEFINED), any());
         verify(thresholdChecker, never()).shouldAlert(anyString(), anyString());
-        verify(notificationPublisher, never()).publish(any(), any(), any(), any(), any());
+        verify(notificationPublisher, never()).publish(any(), any(), any(), any());
     }
 
     @Test

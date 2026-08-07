@@ -33,7 +33,7 @@ class SensorDeviceRegistryTest {
     @DisplayName("처음 수신된 메시지는 registerDeviceIfAbsent 호출하고 두번 수신되면 재시도 안함")
     void ensureRegistered_DeviceCaching() {
         // given
-        DeviceIdentity device = new DeviceIdentity("app1", "app", "prof1", "dev1", DEV_EUI, "loc", ROOM_ID);
+        DeviceIdentity device = new DeviceIdentity("app1", "app", "prof1", "dev1", DEV_EUI, ROOM_ID, "point");
         ParsedSensorMessage message = new ParsedSensorMessage(device, List.of(), Instant.now());
 
         when(sensorDeviceService.loadKnownMeasurements(DEV_EUI)).thenReturn(Set.of());
@@ -52,7 +52,7 @@ class SensorDeviceRegistryTest {
     @DisplayName("ENVIRONMENT 카테고리만 측정항목 저장 대상으로 전달되고 나머지는 걸러짐")
     void ensureRegistered_CategoryFiltering() {
         // given
-        DeviceIdentity device = new DeviceIdentity("app1", "app", "prof1", "dev1", DEV_EUI, "loc", ROOM_ID);
+        DeviceIdentity device = new DeviceIdentity("app1", "app", "prof1", "dev1", DEV_EUI, ROOM_ID, "point");
         SensorData co2Data = new SensorData(MeasurementCategory.ENVIRONMENT, "co2", 800.0);
         SensorData batteryData = new SensorData(MeasurementCategory.DEVICE_HEALTH, "battery", 100.0);
         SensorData rssiData = new SensorData(MeasurementCategory.NETWORK_QUALITY, "rssi", -60.0);
@@ -74,7 +74,7 @@ class SensorDeviceRegistryTest {
     @DisplayName("이미 저장된 항목은 registerMeasurement를 호출하지 않음")
     void ensureRegistered_MeasurementCaching() {
         // given
-        DeviceIdentity device = new DeviceIdentity("app1", "app", "prof1", "dev1", DEV_EUI, "loc", ROOM_ID);
+        DeviceIdentity device = new DeviceIdentity("app1", "app", "prof1", "dev1", DEV_EUI, ROOM_ID, "point");
         SensorData co2Data = new SensorData(MeasurementCategory.ENVIRONMENT, "co2", 800.0);
         ParsedSensorMessage message = new ParsedSensorMessage(device, List.of(co2Data), Instant.now());
 

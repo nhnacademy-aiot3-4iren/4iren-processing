@@ -17,18 +17,7 @@ public record MetricTypeResponse(
 ) {
     public static MetricTypeResponse from(SensorMeasurement measurement) {
         MetricType mt = measurement.getMeasurementType();
-        MeasurementUnit mu = mt.getUnit();
-
-        return new MetricTypeResponse(
-                mt.getCode(),
-                mt.getDisplayName(),
-                mt.getKind().name(),
-                mt.getStatus().name(),
-                mt.getDescription(),
-                mu.getUcumCode(),
-                mu.getDisplayName(),
-                mu.getSymbol()
-        );
+        return from(mt);
     }
 
     public static MetricTypeResponse from(MetricType mt) {

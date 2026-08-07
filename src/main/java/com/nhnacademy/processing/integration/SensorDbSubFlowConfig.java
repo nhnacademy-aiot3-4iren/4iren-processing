@@ -68,8 +68,7 @@ public class SensorDbSubFlowConfig {
                                         String measurement = vd.data().measurement();
                                         if (thresholdChecker.shouldAlert(devEui, measurement)) {
                                             notificationPublisher.publish(
-                                                    roomId,
-                                                    devEui,
+                                                    parsed.device(),
                                                     measurement,
                                                     vd.data().value(),
                                                     parsed.measuredAt()

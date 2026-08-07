@@ -52,7 +52,7 @@ class SensorDeviceServiceTest {
                 new DeviceIdentity(
                         "applicationID", "applicationName",
                         "deviceProfileId", "deviceName",
-                        "devEui", null, ROOM_ID
+                        "devEui", ROOM_ID, "point"
                 ),
                 List.of(), Instant.now()
         );
@@ -164,8 +164,8 @@ class SensorDeviceServiceTest {
     @DisplayName("특정 roomId의 센서 토폴로지(장치 목록 및 측정항목 기호) 정상 조회")
     void getSensorTopologyByRoomId_Success() {
         MqttBrokerInfo mockBroker = mock(MqttBrokerInfo.class);
-        SensorDevice device1 = new SensorDevice("dev1", mockBroker, "appId", "appName", "profile1", "온습도센서", ROOM_ID);
-        SensorDevice device2 = new SensorDevice("dev2", mockBroker, "appId", "appName", "profile2", "CO2센서", ROOM_ID);
+        SensorDevice device1 = new SensorDevice("dev1", mockBroker, "appId", "appName", "profile1", "온습도센서", ROOM_ID, "전면");
+        SensorDevice device2 = new SensorDevice("dev2", mockBroker, "appId", "appName", "profile2", "CO2센서", ROOM_ID, "후면");
 
         MeasurementUnit unitPpm = new MeasurementUnit(1L, "[ppm]", "백만분율", "ppm");
         MetricType co2Type = new MetricType(1L, unitPpm, "co2", "이산화탄소", MetricKind.GAUGE, MetricTypeStatus.ACTIVE, "co2");

@@ -41,14 +41,14 @@ public class SensorPayloadConverter {
         }
 
 
-        String location = (event.deviceInfo().tags() == null) ? "unknown" : event.deviceInfo().tags().getOrDefault("location", "unknown");
+        String point = (event.deviceInfo().tags() == null) ? null : event.deviceInfo().tags().getOrDefault("point", null);
         DeviceIdentity device = new DeviceIdentity(event.deviceInfo().applicationId(),
                                                     event.deviceInfo().applicationName(),
                                                     event.deviceInfo().deviceProfileId(),
                                                     event.deviceInfo().deviceName(),
                                                     event.deviceInfo().devEui(),
-                                                    location,
-                                                    null);
+                                                    null,
+                                                    point);
         List<SensorData> sensorDataList = new ArrayList<>();
         event.object().forEach((measurement, rawValue) -> {
             if(ENV_MEASUREMENTS.contains(measurement)) {

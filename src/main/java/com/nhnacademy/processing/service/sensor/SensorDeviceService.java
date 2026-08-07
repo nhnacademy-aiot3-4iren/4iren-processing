@@ -52,7 +52,8 @@ public class SensorDeviceService {
                     deviceIdentity.applicationName(),
                     deviceIdentity.deviceProfileId(),
                     deviceIdentity.deviceName(),
-                    roomId
+                    roomId,
+                    deviceIdentity.point()
             );
 
             sensorDeviceRepository.save(entity);

@@ -59,8 +59,8 @@ public class SensorMqSubFlowConfig {
                             parsed.device().deviceProfileId(),
                             parsed.device().deviceName(),
                             parsed.device().devEui(),
-                            null,
-                            roomId
+                            roomId,
+                            parsed.device().point()
                     );
                     return new ParsedSensorMessage(newDevice, publishable, parsed.measuredAt());
                 })
