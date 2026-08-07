@@ -6,13 +6,10 @@ import com.nhnacademy.processing.exception.SensorContextNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.RestClient;
 
 @Component
 @RequiredArgsConstructor
 public class SensorContextClient {
-
-//    private final RestClient sensorContextRestClient;
 
     private final CoreClient coreClient;
 
