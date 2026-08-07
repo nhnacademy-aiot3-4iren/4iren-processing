@@ -130,8 +130,6 @@ public class SensorDeviceService {
 
     // ================== 내부 조립(Mapping) 로직 ==================
     private List<SensorInfoResponse> mapToDtoList(List<SensorDevice> devices, List<SensorMeasurement> measurements) {
-
-        // 1. devEui별로 측정항목(Map<측정명, 단위>) 그룹핑
         Map<String, Map<String, String>> measurementsByDevEui = measurements.stream()
                 .collect(Collectors.groupingBy(
                         sm -> sm.getSensorDevice().getDevEui(),
@@ -141,7 +139,7 @@ public class SensorDeviceService {
                                     var unit = sm.getMeasurementType().getUnit();
                                     return unit != null ? unit.getSymbol() : ""; // 단위가 없으면 빈 문자열
                                 },
-                                (existing, replacement) -> existing // 중복 시 기존 값 유지
+                                (existing, replacement) -> existing // 중복 키 충돌 방지
                         )
                 ));
 

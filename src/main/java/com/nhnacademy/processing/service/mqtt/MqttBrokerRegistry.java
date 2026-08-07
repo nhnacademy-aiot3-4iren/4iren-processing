@@ -53,7 +53,11 @@ public class MqttBrokerRegistry {
         Long brokerId = info.id();
 
         try {
-            MqttPahoMessageDrivenChannelAdapter adapter = new MqttPahoMessageDrivenChannelAdapter("4iren-"+ (brokerId+1), createClientFactory(info), info.topic());
+            MqttPahoMessageDrivenChannelAdapter adapter = new MqttPahoMessageDrivenChannelAdapter(
+                    "4iren-" + brokerId,
+                    createClientFactory(info),
+                    info.topic()
+            );
             adapter.setQos(1);
             adapter.setManualAcks(true);
             adapter.setCompletionTimeout(10000);
@@ -72,6 +76,7 @@ public class MqttBrokerRegistry {
             log.info("브로커 등록됨: brokerId({}), url({})", brokerId, info.brokerUrl());
         } catch (Exception e) {
             log.error("브로커 등록 실패: brokerId({}), url({})", brokerId, info.brokerUrl(), e);
+            throw new IllegalStateException("MQTT 브로커 연결/등록 실패: " + info.brokerUrl(), e); // 예외 재발생
         }
     }
 
