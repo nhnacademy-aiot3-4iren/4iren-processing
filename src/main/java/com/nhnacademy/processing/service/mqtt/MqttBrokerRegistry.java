@@ -1,7 +1,8 @@
 package com.nhnacademy.processing.service.mqtt;
 
+import com.nhnacademy.processing.integration.SensorErrorFlowConfig;
+import com.nhnacademy.processing.integration.SensorMessageHeaders;
 import com.nhnacademy.processing.dto.mqtt.MqttBrokerInfoDto;
-import com.nhnacademy.processing.service.handler.SensorMessageHandler;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,13 +16,19 @@ import org.springframework.integration.mqtt.core.DefaultMqttPahoClientFactory;
 import org.springframework.integration.mqtt.core.MqttPahoClientFactory;
 import org.springframework.integration.mqtt.inbound.MqttPahoMessageDrivenChannelAdapter;
 import org.springframework.integration.mqtt.support.DefaultPahoMessageConverter;
+import org.springframework.integration.support.MessageBuilder;
 import org.springframework.messaging.Message;
+import org.springframework.messaging.MessageChannel;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 
+/**
+ * MQTT 브로커별 동적 어댑터 등록/해제
+ * sensorInputChannel로 메시지를 넘김
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -32,19 +39,31 @@ public class MqttBrokerRegistry {
     private final ExecutorService mqttProcessingExecutor;
 
     private final Map<Long, IntegrationFlowContext.IntegrationFlowRegistration> registrations = new ConcurrentHashMap<>();
-    private final SensorMessageHandler sensorMessageHandler;
+
+    private final MessageChannel sensorInputChannel;
+    private final MessageChannel sensorErrorChannel;
 
     @PostConstruct
     public void init() {
-        mqttBrokerService.getMqttBrokerInfo().forEach(this::registerBroker);
-        log.info("MQTT 브로커 {}개 등록 완료", registrations.size());
+        mqttBrokerService.getMqttBrokerInfo().forEach(info -> {
+            try {
+                registerBroker(info);
+            } catch (Exception e) {
+                log.error("초기화 중 브로커 등록 실패 (계속 진행): brokerId({}), url({})", info.id(), info.brokerUrl(), e);
+            }
+        });
+        log.info("MQTT 브로커 초기화 완료: {}개", registrations.size());
     }
 
     public void registerBroker(MqttBrokerInfoDto info) {
         Long brokerId = info.id();
 
         try {
-            MqttPahoMessageDrivenChannelAdapter adapter = new MqttPahoMessageDrivenChannelAdapter("4iren-"+brokerId+1, createClientFactory(info), info.topic());
+            MqttPahoMessageDrivenChannelAdapter adapter = new MqttPahoMessageDrivenChannelAdapter(
+                    "4iren-" + brokerId,
+                    createClientFactory(info),
+                    info.topic()
+            );
             adapter.setQos(1);
             adapter.setManualAcks(true);
             adapter.setCompletionTimeout(10000);
@@ -63,6 +82,7 @@ public class MqttBrokerRegistry {
             log.info("브로커 등록됨: brokerId({}), url({})", brokerId, info.brokerUrl());
         } catch (Exception e) {
             log.error("브로커 등록 실패: brokerId({}), url({})", brokerId, info.brokerUrl(), e);
+            throw new IllegalStateException("MQTT 브로커 연결/등록 실패: " + info.brokerUrl(), e); // 예외 재발생
         }
     }
 
@@ -80,9 +100,12 @@ public class MqttBrokerRegistry {
 
         mqttProcessingExecutor.submit(() -> {
             try {
-                sensorMessageHandler.handle(brokerId, message);
+                Message<?> withBrokerId = MessageBuilder.fromMessage(message)
+                        .setHeader(SensorMessageHeaders.BROKER_ID, brokerId)
+                        .build();
+                sensorInputChannel.send(withBrokerId);
             } catch (Exception e) {
-                log.error("메시지 처리 중 예외 발생: brokerId({})", brokerId, e);
+                sensorErrorChannel.send(MessageBuilder.withPayload(new SensorErrorFlowConfig.ProcessingFailure(brokerId, e)).build());
             } finally {
                 if (ackCallBack instanceof SimpleAcknowledgment ack) {
                     ack.acknowledge();

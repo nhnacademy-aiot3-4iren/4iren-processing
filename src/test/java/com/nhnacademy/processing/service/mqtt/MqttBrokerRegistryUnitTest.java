@@ -1,7 +1,6 @@
 package com.nhnacademy.processing.service.mqtt;
 
 import com.nhnacademy.processing.dto.mqtt.MqttBrokerInfoDto;
-import com.nhnacademy.processing.service.handler.SensorMessageHandler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -9,6 +8,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.integration.dsl.context.IntegrationFlowContext;
+import org.springframework.messaging.MessageChannel;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -24,7 +24,9 @@ class MqttBrokerRegistryUnitTest {
     @Mock
     private MqttBrokerService mqttBrokerService;
     @Mock
-    private SensorMessageHandler sensorMessageHandler;
+    private MessageChannel sensorInputChannel;
+    @Mock
+    private MessageChannel sensorErrorChannel;
     @Mock
     private IntegrationFlowContext.IntegrationFlowRegistration registration;
 
@@ -34,7 +36,7 @@ class MqttBrokerRegistryUnitTest {
     @BeforeEach
     void setUp() {
         executor = Executors.newSingleThreadExecutor();
-        registry = new MqttBrokerRegistry(flowContext, mqttBrokerService, executor, sensorMessageHandler);
+        registry = new MqttBrokerRegistry(flowContext, mqttBrokerService, executor, sensorInputChannel, sensorErrorChannel);
     }
 
     @Test

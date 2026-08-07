@@ -42,6 +42,16 @@ public class MqttBrokerInfo {
         this.enabled = true;
     }
 
+
+    public MqttBrokerInfo(String serverName, String brokerUrl, String username, String password, String topic) {
+        this.serverName = serverName;
+        this.brokerUrl = brokerUrl;
+        this.username = username;
+        this.password = password;
+        this.topic = topic;
+        this.enabled = true;
+    }
+
     public void disable() {
         this.enabled = false;
     }

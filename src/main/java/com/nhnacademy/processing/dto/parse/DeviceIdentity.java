@@ -8,8 +8,8 @@ public record DeviceIdentity(
         String deviceProfileId,
         String deviceName,
         String devEui,
-        String location,
-        Integer roomId
+        Integer roomId,
+        String point
 ) {
     public static DeviceIdentity from(SensorDevice device) {
         return new DeviceIdentity(
@@ -18,8 +18,8 @@ public record DeviceIdentity(
                 device.getDeviceProfileId(),
                 device.getDeviceName(),
                 device.getDevEui(),
-                null,
-                device.getRoomId()
+                device.getRoomId(),
+                device.getPoint()
         );
     }
 }

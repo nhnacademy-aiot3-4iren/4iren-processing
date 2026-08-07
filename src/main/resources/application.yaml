@@ -2,57 +2,8 @@ spring:
   application:
     name: 4iren-processing
 
-  datasource:
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://s4.java21.net:13306/aiot03_team4
-    username: aiot03_team4
-    password: ${MYSQL_PASSWORD}
-    type: org.apache.commons.dbcp2.BasicDataSource
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: true
+  config:
+    import: ${CONFIG_SERVER_URL:optional:configserver:http://localhost:8888}
 
-  rabbitmq:
-    host: ${RABBIT_HOST}
-    port: ${RABBIT_PORT}
-    username: ${RABBIT_USERNAME}
-    password: ${RABBIT_PASSWORD}
-    listener:
-      simple:
-        concurrency: 5
-        max-concurrency: 15
-        acknowledge-mode: auto
-    template:
-      exchange: ${RABBIT_EXCHANGE_NAME}
-      routing-key: ${RABBIT_ROUTING_KEY}
-
-  elasticsearch:
-    uris: http://s4.java21.net:9200
-    username: elastic
-    password: ${ELASTICSEARCH_PASSWORD}
-
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health
-  endpoint:
-    health:
-      show-details: always
-
-influx:
-  url: ${INFLUX_URL}
-  token: ${INFLUX_TOKEN}
-  org: ${INFLUX_ORG}
-  bucket: ${INFLUX_BUCKET}
-
-eureka:
-  client:
-    service-url:
-      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
-    register-with-eureka: true
-    fetch-registry: true
-  instance:
-    prefer-ip-address: true
-
+  profiles:
+    active: dev

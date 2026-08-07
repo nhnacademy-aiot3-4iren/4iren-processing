@@ -4,13 +4,13 @@ import com.nhnacademy.processing.domain.SensorValidationRule;
 
 public record Rule(
         long id,
-        Measurement measurement,
+        Metric measurement,
         double minValue,
         double maxValue
 ) {
     public static Rule from(SensorValidationRule rule) {
         return new Rule(rule.getId(),
-                Measurement.from(rule.getMeasurementType()),
+                Metric.from(rule.getMeasurementType()),
                 rule.getMinValue(),
                 rule.getMaxValue() );
     }

@@ -35,4 +35,7 @@ public class SensorDevice {
 
     @Column(nullable = false)
     private Integer roomId;
+
+    @Column(length = 50)
+    private String point;
 }
