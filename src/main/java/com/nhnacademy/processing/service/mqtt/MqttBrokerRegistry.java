@@ -45,8 +45,14 @@ public class MqttBrokerRegistry {
 
     @PostConstruct
     public void init() {
-        mqttBrokerService.getMqttBrokerInfo().forEach(this::registerBroker);
-        log.info("MQTT 브로커 {}개 등록 완료", registrations.size());
+        mqttBrokerService.getMqttBrokerInfo().forEach(info -> {
+            try {
+                registerBroker(info);
+            } catch (Exception e) {
+                log.error("초기화 중 브로커 등록 실패 (계속 진행): brokerId({}), url({})", info.id(), info.brokerUrl(), e);
+            }
+        });
+        log.info("MQTT 브로커 초기화 완료: {}개", registrations.size());
     }
 
     public void registerBroker(MqttBrokerInfoDto info) {
