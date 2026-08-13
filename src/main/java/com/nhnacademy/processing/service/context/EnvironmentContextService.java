@@ -25,21 +25,22 @@ public class EnvironmentContextService {
     private final RedisTemplate<String, EnvironmentContext> environmentContextRedisTemplate;
 
     public Optional<EnvironmentContext> updateContext(ParsedSensorMessage message, Integer roomId) {
-        if(roomId == null || roomId < 0) {
+        if (roomId == null || roomId < 0 || message.device() == null) {
             return Optional.empty();
         }
 
         String devEui = message.device().devEui();
+        Instant updatedAt = message.measuredAt() != null ? message.measuredAt() : Instant.now();
 
         List<SensorData> environmentData = message.sensorDataList().stream()
                 .filter(data -> data.category().equals(MeasurementCategory.ENVIRONMENT) || data.category().equals(MeasurementCategory.DEVICE_HEALTH))
                 .toList();
 
-        if(environmentData.isEmpty()) {
+        if (environmentData.isEmpty()) {
             return Optional.empty();
         }
 
-        EnvironmentContext merged = merge(roomId, environmentData, devEui, message.measuredAt());
+        EnvironmentContext merged = merge(roomId, environmentData, devEui, updatedAt);
         save(roomId, merged);
 
         return Optional.of(merged);

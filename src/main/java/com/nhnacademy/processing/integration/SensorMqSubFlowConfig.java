@@ -75,7 +75,7 @@ public class SensorMqSubFlowConfig {
                     return new ParsedSensorMessage(newDevice, publishable, parsed.measuredAt());
                 })
 
-                // 4. roomId의 Redis 환경 컨텍스트 갱신
+                // 3. roomId의 Redis 환경 컨텍스트 갱신
                 .handle(ParsedSensorMessage.class, (message, headers) -> {
                     Integer roomId = headers.get(SensorMessageHeaders.ROOM_ID, Integer.class);
                     Long brokerId = headers.get(SensorMessageHeaders.BROKER_ID, Long.class);
