@@ -69,7 +69,7 @@ class NotificationPublisherTest {
         assertNotNull(event.eventId());
 
         assertEquals(1, event.nodeResults().size());
-        AlertEvent.NodeResult nodeResult = event.nodeResults().get(0);
+        AlertEvent.NodeResult nodeResult = event.nodeResults().getFirst();
         assertEquals(measurement, nodeResult.metricType());
         assertEquals("°C", nodeResult.unit());
         assertEquals(30.0, nodeResult.threshold());
