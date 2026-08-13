@@ -8,6 +8,7 @@ import com.nhnacademy.processing.dto.rule.MeasurementCategory;
 import com.nhnacademy.processing.dto.rule.ValidationStatus;
 import com.nhnacademy.processing.service.alert.NotificationPublisher;
 import com.nhnacademy.processing.service.alert.ThresholdChecker;
+import com.nhnacademy.processing.service.context.EnvironmentContextService;
 import com.nhnacademy.processing.service.converter.SensorPayloadConverter;
 import com.nhnacademy.processing.service.es.SensorAnomalyLogService;
 import com.nhnacademy.processing.service.influx.InfluxDbWriter;
@@ -67,6 +68,7 @@ class SensorIntegrationFlowTest {
     @MockitoBean private InfluxDbWriter influxDbWriter;
     @MockitoBean private SensorAnomalyLogService anomalyLogService;
     @MockitoBean private RabbitTemplate rabbitTemplate;
+    @MockitoBean private EnvironmentContextService contextService;
     @MockitoBean private ThresholdChecker thresholdChecker;
     @MockitoBean private NotificationPublisher notificationPublisher;
 
@@ -188,5 +190,39 @@ class SensorIntegrationFlowTest {
 
         verify(influxDbWriter, times(1)).writeAsync(eq(healthData), any(), eq(-1));
         verify(rabbitTemplate, never()).send(anyString(), anyString(), any(Message.class), any());
+    }
+
+    @Test
+    @DisplayName("환경 데이터가 MQ로 발행될 때 EnvironmentContextService 호출")
+    void mqPublish_Triggers_EnvironmentContextUpdate() {
+        SensorData validEnvData = new SensorData(MeasurementCategory.ENVIRONMENT, "co2", 400.0);
+        SensorData healthData = new SensorData(MeasurementCategory.DEVICE_HEALTH, "battery", 100.0);
+        ParsedSensorMessage parsedMessage = new ParsedSensorMessage(mockDevice, List.of(validEnvData, healthData), Instant.now());
+
+        when(payloadConverter.convert(RAW_PAYLOAD)).thenReturn(parsedMessage);
+        when(sensorValidator.validate(validEnvData)).thenReturn(ValidationStatus.VALID);
+
+        sendRawPayload();
+
+        verify(rabbitTemplate, times(1)).send(anyString(), anyString(), any(Message.class), any());
+        verify(contextService, times(1)).updateContext(any(ParsedSensorMessage.class), eq(VALID_ROOM_ID));
+    }
+
+    @Test
+    @DisplayName("EnvironmentContext 갱신에 예외가 발생해도 파이프라인 중단X MQ 발행을 계속함")
+    void redisUpdateFailure_ContinuesPipeline_AndSendsToMq() {
+        SensorData validEnvData = new SensorData(MeasurementCategory.ENVIRONMENT, "co2", 400.0);
+        ParsedSensorMessage parsedMessage = new ParsedSensorMessage(mockDevice, List.of(validEnvData), Instant.now());
+
+        when(payloadConverter.convert(RAW_PAYLOAD)).thenReturn(parsedMessage);
+        when(sensorValidator.validate(validEnvData)).thenReturn(ValidationStatus.VALID);
+
+        doThrow(new RuntimeException("Redis timeout simulate"))
+                .when(contextService).updateContext(any(), anyInt());
+
+        sendRawPayload();
+
+        verify(contextService, times(1)).updateContext(any(ParsedSensorMessage.class), eq(VALID_ROOM_ID));
+        verify(rabbitTemplate, times(1)).send(anyString(), anyString(), any(Message.class), any());
     }
 }

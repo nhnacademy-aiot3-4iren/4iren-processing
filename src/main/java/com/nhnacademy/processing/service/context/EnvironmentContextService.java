@@ -32,7 +32,7 @@ public class EnvironmentContextService {
         String devEui = message.device().devEui();
 
         List<SensorData> environmentData = message.sensorDataList().stream()
-                .filter(data -> data.category() == MeasurementCategory.ENVIRONMENT)
+                .filter(data -> data.category().equals(MeasurementCategory.ENVIRONMENT) || data.category().equals(MeasurementCategory.DEVICE_HEALTH))
                 .toList();
 
         if(environmentData.isEmpty()) {
