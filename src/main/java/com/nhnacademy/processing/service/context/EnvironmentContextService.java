@@ -35,7 +35,7 @@ public class EnvironmentContextService {
         Instant updatedAt = message.measuredAt() != null ? message.measuredAt() : Instant.now();
 
         List<SensorData> environmentData = message.sensorDataList().stream()
-                .filter(data -> data.category().equals(MeasurementCategory.ENVIRONMENT) || data.category().equals(MeasurementCategory.DEVICE_HEALTH))
+                .filter(data -> data.category() == MeasurementCategory.ENVIRONMENT || data.category() == MeasurementCategory.DEVICE_HEALTH)
                 .toList();
 
         if (environmentData.isEmpty()) {
@@ -72,7 +72,7 @@ public class EnvironmentContextService {
                 operations.watch(key);
 
                 EnvironmentContext existing = (EnvironmentContext) operations.opsForValue().get(key);
-               EnvironmentContext merged = merge(roomId, existing, environmentData, devEui, updatedAt);
+                EnvironmentContext merged = merge(roomId, existing, environmentData, devEui, updatedAt);
                 mergedRef.set(merged);
 
                 operations.multi();
