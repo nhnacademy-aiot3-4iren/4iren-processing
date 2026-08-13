@@ -10,8 +10,8 @@ public record EnvironmentContext (
 ) {
     public record MetricInfo(
             String metric,
-            Long value,
-            String detectedDeviceEui,
+            Double value,
+            String devEui,
             Instant updatedAt
     ) {}
 
