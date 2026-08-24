@@ -1,0 +1,22 @@
+### 1. 센서 측정 항목 조회 - (온도, 습도, CO2 센서)
+GET http://localhost:8085/api/processing/metric_type?devEui=24e124725d081175
+Accept: application/json
+
+### 2. 센서 측정 항목 조회 - (온도, 습도 센서)
+GET http://localhost:8085/api/processing/metric_type?devEui=24e124136d151836
+
+### 3. 모든 측정 가능 데이터 카탈로그 조회
+GET http://localhost:8085/api/processing/internal/metric-catalog
+Accept: application/json
+
+### 4. 여러 센서의 측정 가능 데이터 배치 조회
+POST http://localhost:8085/api/processing/internal/sensors/batch
+Content-Type: application/json
+
+{
+  "devEuis": [
+    "24e124725d081175",
+    "24e124136d151836",
+    "24e124128c140101"
+  ]
+}
