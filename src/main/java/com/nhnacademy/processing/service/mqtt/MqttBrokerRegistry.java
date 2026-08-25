@@ -3,10 +3,11 @@ package com.nhnacademy.processing.service.mqtt;
 import com.nhnacademy.processing.integration.SensorErrorFlowConfig;
 import com.nhnacademy.processing.integration.SensorMessageHeaders;
 import com.nhnacademy.processing.dto.mqtt.MqttBrokerInfoDto;
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.integration.IntegrationMessageHeaderAccessor;
 import org.springframework.integration.acks.SimpleAcknowledgment;
 import org.springframework.integration.channel.DirectChannel;
@@ -22,6 +23,7 @@ import org.springframework.messaging.MessageChannel;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 
@@ -43,7 +45,7 @@ public class MqttBrokerRegistry {
     private final MessageChannel sensorInputChannel;
     private final MessageChannel sensorErrorChannel;
 
-    @PostConstruct
+    @EventListener(ApplicationReadyEvent.class)
     public void init() {
         mqttBrokerService.getMqttBrokerInfo().forEach(info -> {
             try {
@@ -57,10 +59,11 @@ public class MqttBrokerRegistry {
 
     public void registerBroker(MqttBrokerInfoDto info) {
         Long brokerId = info.id();
+        String clientId = "4iren-%d-%s-%s".formatted(info.id(), info.serverName(), UUID.randomUUID().toString().substring(0, 8));
 
         try {
             MqttPahoMessageDrivenChannelAdapter adapter = new MqttPahoMessageDrivenChannelAdapter(
-                    "4iren-" + brokerId,
+                    clientId,
                     createClientFactory(info),
                     info.topic()
             );
@@ -120,9 +123,9 @@ public class MqttBrokerRegistry {
 
         options.setServerURIs(new String[]{info.brokerUrl()});
         options.setAutomaticReconnect(true);
-        options.setCleanSession(false);
         options.setConnectionTimeout(30);
         options.setKeepAliveInterval(60);
+        options.setCleanSession(true);
         if (info.username() != null) {
             options.setUserName(info.username());
             options.setPassword(info.password().toCharArray());
