@@ -2,9 +2,9 @@ package com.nhnacademy.processing.auth;
 
 public record AuthUser(
         Long id,
-        String role
+        Role role
 ) {
     public boolean isAdmin() {
-        return "ADMIN".equals(role);
+        return this.role == Role.ADMIN;
     }
 }
