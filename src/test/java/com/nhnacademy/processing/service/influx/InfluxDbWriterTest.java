@@ -40,7 +40,7 @@ class InfluxDbWriterTest {
     void writeAsync_success() {
         SensorInfluxPointDto dto = new SensorInfluxPointDto(
                 "temperature", 25.0, Instant.now(),
-                "applicationId", "devEui", "deviceName", 1
+                "applicationId", "devEui", "deviceName", "location", 1
         );
 
         writer.writeAsync(dto);
@@ -55,7 +55,7 @@ class InfluxDbWriterTest {
 
         SensorInfluxPointDto dto = new SensorInfluxPointDto(
                 "temperature", 25.0, Instant.now(),
-                "applicationId", "devEui", "deviceName", 1
+                "applicationId", "devEui", "deviceName", "location", 1
         );
 
         assertThatCode(() -> writer.writeAsync(dto))

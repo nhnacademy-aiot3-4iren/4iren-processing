@@ -21,6 +21,8 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class InfluxDbWriter {
 
+    private static final String MEASUREMENT_NAME = "sensor_telemetry"; // 통일할 InfluxDB Measurement 이름
+
     private final InfluxDBClient influxDBClient;
     private WriteApi writeApi;
 
@@ -57,8 +59,9 @@ public class InfluxDbWriter {
     }
 
     private Point toPoint(SensorInfluxPointDto dto) {
-        Point point = new Point(dto.measurement())
+        Point point = Point.measurement(MEASUREMENT_NAME) // 1. 고정된 measurement 이름 사용
                 .time(dto.measuredAt(), WritePrecision.MS)
+                .addTag("metric", dto.measurement())      // 2. 메트릭 종류(temperature, co2 등)를 Tag로 기록
                 .addTag("application_id", dto.applicationId())
                 .addTag("dev_eui", dto.devEui())
                 .addTag("device_name", dto.deviceName())
@@ -68,7 +71,6 @@ public class InfluxDbWriter {
         if (dto.roomId() != null) {
             point.addTag("room_id", String.valueOf(dto.roomId()));
         }
-
         return point;
     }
 

@@ -19,6 +19,7 @@ import org.testcontainers.utility.DockerImageName;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -32,6 +33,7 @@ class InfluxDbWriterSliceTest {
     private static final String TOKEN = "test-token-1234567890";
     private static final String USERNAME = "admin";
     private static final String PASSWORD = "admin1234";
+    private static final String MEASUREMENT = "sensor_telemetry";
 
     @Container
     static GenericContainer<?> influx = new GenericContainer<>(DockerImageName.parse("influxdb:2.7"))
@@ -76,20 +78,27 @@ class InfluxDbWriterSliceTest {
         return resultHolder.get();
     }
 
+    private String randomDevEui() {
+        return UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+    }
+
     @Test
-    @DisplayName("단건 환경 데이터를 비동기로 작성 -> InfluxDB에 정상 적재되어 조회됨")
+    @DisplayName("단건 환경 데이터를 비동기로 작성 -> InfluxDB에 sensor_telemetry measurement로 정상 적재되어 조회됨")
     void writerAsync_Success() {
-        SensorInfluxPointDto dto = new SensorInfluxPointDto("temperature", 25.0, Instant.now(), "applicationId", "1234567890abcdef", "deviceName", 101);
+        String devEui = randomDevEui();
+        SensorInfluxPointDto dto = new SensorInfluxPointDto("temperature", 25.0, Instant.now(), "applicationId", devEui, "deviceName", "location", 101);
         writer.writeAsync(dto);
 
         List<FluxTable> tables = awaitQuery("""
                 from(bucket: "%s")
                     |> range(start: -1h)
-                    |> filter(fn: (r) => r._measurement == "temperature" and r.dev_eui == "1234567890abcdef")
-                """.formatted(BUCKET));
+                    |> filter(fn: (r) => r._measurement == "%s" and r.metric == "temperature" and r.dev_eui == "%s")
+                """.formatted(BUCKET, MEASUREMENT, devEui));
 
         assertThat(tables).isNotEmpty();
         FluxRecord record = tables.getFirst().getRecords().getFirst();
+        assertThat(record.getMeasurement()).isEqualTo(MEASUREMENT);
+        assertThat(record.getValueByKey("metric")).isEqualTo("temperature");
         assertThat(record.getValueByKey("_value")).isEqualTo(25.0);
         assertThat(record.getValueByKey("room_id")).isEqualTo("101");
         assertThat(record.getValueByKey("device_name")).isEqualTo("deviceName");
@@ -98,10 +107,10 @@ class InfluxDbWriterSliceTest {
     @Test
     @DisplayName("동일 센서의 연속 데이터 수신 시 모든 포인트가 누락 없이 저장")
     void writeAsync_MultiplePoints_Success() {
-        String devEui = "1234567890abcedf";
+        String devEui = randomDevEui();
         List<SensorInfluxPointDto> dtos = List.of(
-                new SensorInfluxPointDto("temperature", 25.0, Instant.now(), "applicationId", devEui, "deviceName", 101),
-                new SensorInfluxPointDto("co2", 900.0, Instant.now(), "applicationId", devEui, "deviceName", 101)
+                new SensorInfluxPointDto("temperature", 25.0, Instant.now(), "applicationId", devEui, "deviceName", "location", 101),
+                new SensorInfluxPointDto("co2", 900.0, Instant.now(), "applicationId", devEui, "deviceName", "location", 101)
         );
 
         dtos.forEach(writer::writeAsync);
@@ -109,27 +118,30 @@ class InfluxDbWriterSliceTest {
         List<FluxTable> tables = awaitQuery("""
             from(bucket: "%s")
               |> range(start: -1h)
-              |> filter(fn: (r) => r.dev_eui == "%s")
-            """.formatted(BUCKET, devEui));
+              |> filter(fn: (r) => r._measurement == "%s" and r.dev_eui == "%s")
+            """.formatted(BUCKET, MEASUREMENT, devEui));
 
         long recordCount = tables.stream().mapToLong(t -> t.getRecords().size()).sum();
         assertThat(recordCount).isEqualTo(2);
     }
 
     @Test
-    @DisplayName("설정한 태그 메타데이터가 정확히 매핑됨")
+    @DisplayName("설정한 태그 메타데이터(metric, application_id, device_name 등)가 정확히 매핑됨")
     void writeAsync_TagVerification() {
-        SensorInfluxPointDto dto = new SensorInfluxPointDto("co2", 900.0, Instant.now(), "applicationId", "1234567890abcdef", "deviceName", 101);
+        String devEui = randomDevEui();
+        SensorInfluxPointDto dto = new SensorInfluxPointDto("co2", 900.0, Instant.now(), "applicationId", devEui, "deviceName", "location", 101);
 
         writer.writeAsync(dto);
 
         List<FluxTable> tables = awaitQuery("""
             from(bucket: "%s")
               |> range(start: -1h)
-              |> filter(fn: (r) => r.dev_eui == "1234567890abcdef")
-            """.formatted(BUCKET));
+              |> filter(fn: (r) => r._measurement == "%s" and r.metric == "co2" and r.dev_eui == "%s")
+            """.formatted(BUCKET, MEASUREMENT, devEui));
 
         FluxRecord record = tables.getFirst().getRecords().getFirst();
+        assertThat(record.getMeasurement()).isEqualTo(MEASUREMENT);
+        assertThat(record.getValueByKey("metric")).isEqualTo("co2");
         assertThat(record.getValueByKey("application_id")).isEqualTo("applicationId");
         assertThat(record.getValueByKey("device_name")).isEqualTo("deviceName");
         assertThat(record.getValueByKey("room_id")).isEqualTo("101");
