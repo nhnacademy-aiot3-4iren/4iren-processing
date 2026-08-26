@@ -51,7 +51,7 @@ public class SensorMqSubFlowConfig {
                 // 2. 유효한 데이터만 추려서 새 ParsedSensorMessage 생성
                 .handle(ParsedSensorMessage.class, (parsed, headers) -> {
                     Integer roomId = headers.get(SensorMessageHeaders.ROOM_ID, Integer.class);
-                    if(roomId == null || roomId < 0) {
+                    if(roomId == null) {
                         return null;
                     }
 
@@ -70,6 +70,7 @@ public class SensorMqSubFlowConfig {
                             parsed.device().deviceName(),
                             parsed.device().devEui(),
                             roomId,
+                            parsed.device().location(),
                             parsed.device().point()
                     );
                     return new ParsedSensorMessage(newDevice, publishable, parsed.measuredAt());

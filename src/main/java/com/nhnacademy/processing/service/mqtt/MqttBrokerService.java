@@ -26,6 +26,7 @@ public class MqttBrokerService {
     @Transactional
     public MqttBrokerInfoDto register(MqttBrokerCreateRequest request) {
         MqttBrokerInfo entity = new MqttBrokerInfo(
+                request.buildingId(),
                 request.serverName(),
                 request.brokerUrl(),
                 request.username(),

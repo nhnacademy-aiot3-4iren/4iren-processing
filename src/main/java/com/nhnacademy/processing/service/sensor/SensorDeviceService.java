@@ -4,8 +4,7 @@ import com.nhnacademy.processing.domain.*;
 import com.nhnacademy.processing.dto.parse.DeviceIdentity;
 import com.nhnacademy.processing.dto.parse.ParsedSensorMessage;
 import com.nhnacademy.processing.dto.parse.SensorData;
-import com.nhnacademy.processing.dto.sensor.MetricTypeResponse;
-import com.nhnacademy.processing.dto.sensor.SensorInfoResponse;
+import com.nhnacademy.processing.dto.sensor.*;
 import com.nhnacademy.processing.repository.MetricTypeRepository;
 import com.nhnacademy.processing.repository.MqttBrokerInfoRepository;
 import com.nhnacademy.processing.repository.SensorDeviceRepository;
@@ -18,10 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -36,8 +32,8 @@ public class SensorDeviceService {
     private final SensorMeasurementRepository sensorMeasurementRepository;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void registerDeviceIfAbsent(ParsedSensorMessage message, String devEui, Long brokerId, int roomId) {
-        if(sensorDeviceRepository.existsById(devEui)) {
+    public void registerDeviceIfAbsent(ParsedSensorMessage message, String devEui, Long brokerId) {
+        if(sensorDeviceRepository.existsByDevEuiAndMqttBrokerInfo_Id(devEui, brokerId)) {
             return;
         }
 
@@ -52,39 +48,92 @@ public class SensorDeviceService {
                     deviceIdentity.applicationName(),
                     deviceIdentity.deviceProfileId(),
                     deviceIdentity.deviceName(),
-                    roomId,
+                    null,
+                    deviceIdentity.location(),
                     deviceIdentity.point()
             );
 
             sensorDeviceRepository.save(entity);
-            log.info("신규 센서 기기 등록 완료: devEui({}), deviceName({}), roomId({})", devEui, deviceIdentity.deviceName(), roomId);
+            log.info("신규 센서 기기 등록 완료: devEui({}), deviceName({}), location({})", devEui, deviceIdentity.deviceName(), deviceIdentity.location());
         } catch (DataIntegrityViolationException | PessimisticLockingFailureException e) {
-                log.debug("센서 기기 동시 등록 경합 발생 (무시 가능): devEui({})", devEui);
+            log.debug("센서 기기 동시 등록 경합 발생 (무시 가능): devEui({})", devEui);
         }
     }
 
     @Transactional
-    public void registerMeasurement(String devEui, SensorData data, Set<String> known) {
-        metricTypeRepository.findByCode(data.measurement()).ifPresentOrElse(type -> {
-            try {
-                SensorDevice deviceProxy = sensorDeviceRepository.getReferenceById(devEui);
-                SensorMeasurement measurement = new SensorMeasurement(deviceProxy, type);
+    public void registerMeasurement(String devEui, Long brokerId, SensorData data, Set<String> known) {
+        metricTypeRepository.findByCode(data.measurement()).ifPresentOrElse(type ->
+                        sensorDeviceRepository.findByDevEuiAndMqttBrokerInfo_Id(devEui, brokerId).ifPresentOrElse(device -> {
+                            try {
+                                SensorMeasurement measurement = new SensorMeasurement(device, type);
 
-                sensorMeasurementRepository.save(measurement);
-                known.add(data.measurement());
-                log.info("센서 측정항목 연결 완료: devEui={}, measurement({})(ID:{})", devEui, data.measurement(), type.getId());
-            } catch (DataIntegrityViolationException e) {
-                known.add(data.measurement());
-            }
-        }, () -> log.warn("measurement_types 테이블에 정의되지 않은 측정항목: {}", data.measurement()));
+                                sensorMeasurementRepository.save(measurement);
+                                known.add(data.measurement());
+                                log.info("센서 측정항목 연결 완료: devEui={}, measurement({})(ID:{})", devEui, data.measurement(), type.getId());
+                            } catch (DataIntegrityViolationException e) {
+                                known.add(data.measurement());
+                            }
+                        }, () -> log.warn("등록되지 않은 센서 기기: devEui({}), brokerId({})", devEui, brokerId)),
+                () -> log.warn("measurement_types 테이블에 정의되지 않은 측정항목: {}", data.measurement()));
     }
 
     @Transactional(readOnly = true)
-    public Set<String> loadKnownMeasurements(String devEui) {
+    public Set<String> loadKnownMeasurements(String devEui, Long brokerId) {
         Set<String> set = ConcurrentHashMap.newKeySet();
-        sensorMeasurementRepository.findAllByDevEuiWithMeasurementType(devEui)
+        sensorMeasurementRepository.findAllByDevEuiWithMeasurementType(devEui, brokerId)
                 .forEach(m -> set.add(m.getMeasurementType().getCode()));
         return set;
+    }
+
+    // devEui와 brokerId로 배정된 roomId 조회
+    @Transactional(readOnly = true)
+    public Integer findRoomId(String devEui, Long brokerId) {
+        // 기존의 무거운 findByDevEuiAndMqttBrokerInfo_Id 대신 최적화 쿼리 사용
+        return sensorDeviceRepository.findRoomIdOnly(devEui, brokerId).orElse(null);
+    }
+
+    @Transactional
+    public List<RoomAssignmentResult> assignRooms(List<SensorRoomAssignmentRequest> requests) {
+        return requests.stream()
+                .map(request -> sensorDeviceRepository
+                        .findByDevEuiAndMqttBrokerInfo_BuildingId(request.devEui(), request.buildingId())
+                        .map(device -> {
+                            device.assignRoom(request.roomId());
+                            // 엔티티 대신 순수 레코드로 매핑하여 반환
+                            return new RoomAssignmentResult(
+                                    device.getDevEui(),
+                                    device.getMqttBrokerInfo().getId(),
+                                    device.getRoomId()
+                            );
+                        })
+                        .orElseGet(() -> {
+                            log.warn("roomId 매칭 대상 센서 기기를 찾을 수 없음: devEui({}), buildingId({})",
+                                    request.devEui(), request.buildingId());
+                            return null;
+                        }))
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<SensorSummaryResponse> getSensorsByBuildingId(Long buildingId) {
+        return sensorDeviceRepository.findAllByMqttBrokerInfo_BuildingId(buildingId).stream()
+                .map(SensorSummaryResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<SensorSummaryResponse> getSensorsByBuildingIdAndRoomId(Long buildingId, Integer roomId) {
+        return sensorDeviceRepository.findAllByMqttBrokerInfo_BuildingIdAndRoomId(buildingId, roomId).stream()
+                .map(SensorSummaryResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<SensorSummaryResponse> getSensorsByRoomId(Integer roomId) {
+        return sensorDeviceRepository.findAllByRoomId(roomId).stream()
+                .map(SensorSummaryResponse::from)
+                .toList();
     }
 
     @Transactional(readOnly = true)

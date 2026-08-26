@@ -9,6 +9,7 @@ public record SensorInfluxPointDto(
         String applicationId,
         String devEui,
         String deviceName,
-        int roomId
+        String location,
+        Integer roomId
 ) {
 }

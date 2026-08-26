@@ -5,16 +5,18 @@ import jakarta.validation.constraints.NotNull;
 
 public record MqttBrokerCreateRequest(
 
-        @NotNull @NotBlank
+        @NotNull(message = "building ID는 필수입니다.")
+        Long buildingId,
+
+        @NotBlank(message = "서버 이름은 필수입니다.")
         String serverName,
 
-        @NotNull @NotBlank
+        @NotBlank(message = "브로커 URL은 필수입니다.")
         String brokerUrl,
-
 
         String username,
         String password,
 
-        @NotNull @NotBlank
+        @NotBlank(message = "구독 토픽은 필수입니다.")
         String topic
 ) {}

@@ -3,7 +3,8 @@ package com.nhnacademy.processing.dto.mqtt;
 import com.nhnacademy.processing.domain.MqttBrokerInfo;
 
 public record MqttBrokerInfoDto(
-        long id,
+        Long id,
+        Long buildingId,
         String serverName,
         String brokerUrl,
         String username,
@@ -13,6 +14,7 @@ public record MqttBrokerInfoDto(
     public static MqttBrokerInfoDto from(MqttBrokerInfo info) {
         return new MqttBrokerInfoDto(
                 info.getId(),
+                info.getBuildingId(),
                 info.getServerName(),
                 info.getBrokerUrl(),
                 info.getUsername(),

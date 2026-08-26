@@ -48,7 +48,7 @@ class NotificationPublisherTest {
         Instant now = Instant.now();
 
         DeviceIdentity device = new DeviceIdentity(
-                "app1", "appName", "prof1", "deviceName123", "devEui123", 101, "pointA"
+                "app1", "appName", "prof1", "deviceName123", "devEui123", 101, "location", "pointA"
         );
         Metric metric = new Metric(1L, "temperature", "°C");
         Rule mockRule = new Rule(1L, metric, -10.0, 30.0);
@@ -83,7 +83,7 @@ class NotificationPublisherTest {
                 .when(rabbitTemplate).convertAndSend(anyString(), anyString(), any(AlertEvent.class));
 
         DeviceIdentity device = new DeviceIdentity(
-                "app1", "appName", "prof1", "deviceName123", "dev123", 101, "pointA"
+                "app1", "appName", "prof1", "deviceName123", "dev123", 101, "location","pointA"
         );
 
         when(ruleRegistry.findRule(anyString())).thenReturn(Optional.empty());

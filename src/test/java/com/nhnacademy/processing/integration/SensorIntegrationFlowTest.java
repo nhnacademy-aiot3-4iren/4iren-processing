@@ -1,6 +1,5 @@
 package com.nhnacademy.processing.integration;
 
-import com.nhnacademy.processing.dto.api.SensorContext;
 import com.nhnacademy.processing.dto.parse.DeviceIdentity;
 import com.nhnacademy.processing.dto.parse.ParsedSensorMessage;
 import com.nhnacademy.processing.dto.parse.SensorData;
@@ -12,7 +11,6 @@ import com.nhnacademy.processing.service.context.EnvironmentContextService;
 import com.nhnacademy.processing.service.converter.SensorPayloadConverter;
 import com.nhnacademy.processing.service.es.SensorAnomalyLogService;
 import com.nhnacademy.processing.service.influx.InfluxDbWriter;
-import com.nhnacademy.processing.service.process.SensorContextResolver;
 import com.nhnacademy.processing.service.sensor.SensorDeviceRegistry;
 import com.nhnacademy.processing.service.validation.SensorValidator;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,7 +31,6 @@ import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -61,7 +58,6 @@ class SensorIntegrationFlowTest {
     private MessageChannel sensorInputChannel;
 
     @MockitoBean private SensorPayloadConverter payloadConverter;
-    @MockitoBean private SensorContextResolver contextResolver;
     @MockitoBean private SensorDeviceRegistry sensorDeviceRegistry;
     @MockitoBean private SensorValidator sensorValidator;
 
@@ -79,10 +75,12 @@ class SensorIntegrationFlowTest {
 
     @BeforeEach
     void setUp() {
-        mockDevice = new DeviceIdentity("app1", "appName", "prof1", "deviceName", "devEui123", VALID_ROOM_ID, "point");
+        mockDevice = new DeviceIdentity("app1", "appName", "prof1", "deviceName", "devEui123", VALID_ROOM_ID, "location", "point");
 
-        when(contextResolver.resolve("devEui123")).thenReturn(Optional.of(new SensorContext("devEui123", VALID_ROOM_ID, 1)));
-        doNothing().when(sensorDeviceRegistry).ensureRegistered(any(), any(), anyInt());
+        doNothing().when(sensorDeviceRegistry).ensureRegistered(any(), any());
+
+        // 새로 추가된 roomId 조회 로직에 대한 Mocking 추가
+        when(sensorDeviceRegistry.resolveRoomId(eq("devEui123"), eq(BROKER_ID))).thenReturn(VALID_ROOM_ID);
 
         MessageConverter mockConverter = mock(MessageConverter.class);
         when(mockConverter.toMessage(any(), any(MessageProperties.class)))
@@ -179,16 +177,18 @@ class SensorIntegrationFlowTest {
     @Test
     @DisplayName("RoomId가 없는 기기의 데이터는 DB에는 저장, MQ로는 발행X")
     void unknownRoomId_RoutesTo_DB_But_DroppedFromMQ() {
-        when(contextResolver.resolve("devEui123")).thenReturn(Optional.empty());
-
+        DeviceIdentity nullRoomIdDevice = new DeviceIdentity("app1", "appName", "prof1", "deviceName", "devEui123", null, "location", "point");
         SensorData healthData = new SensorData(MeasurementCategory.DEVICE_HEALTH, "battery", 100.0);
-        ParsedSensorMessage parsedMessage = new ParsedSensorMessage(mockDevice, List.of(healthData), Instant.now());
+        ParsedSensorMessage parsedMessage = new ParsedSensorMessage(nullRoomIdDevice, List.of(healthData), Instant.now());
 
         when(payloadConverter.convert(RAW_PAYLOAD)).thenReturn(parsedMessage);
 
+        // 이 테스트에 한해 캐시/DB 조회 결과가 null이 나오도록 오버라이딩
+        when(sensorDeviceRegistry.resolveRoomId(eq("devEui123"), eq(BROKER_ID))).thenReturn(null);
+
         sendRawPayload();
 
-        verify(influxDbWriter, times(1)).writeAsync(eq(healthData), any(), eq(-1));
+        verify(influxDbWriter, times(1)).writeAsync(eq(healthData), any(), eq(null));
         verify(rabbitTemplate, never()).send(anyString(), anyString(), any(Message.class), any());
     }
 

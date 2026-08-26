@@ -42,8 +42,8 @@ class MqttBrokerRegistryUnitTest {
     @Test
     @DisplayName("특정 브로터 등록 중 예외가 발생하더라도 중단되이 않음")
     void registerBroker_Exception() {
-        MqttBrokerInfoDto brokenDto = new MqttBrokerInfoDto(1L, "serverName", "tcp://broken:1883", "username", "password", "topic/broken");
-        MqttBrokerInfoDto okDto = new MqttBrokerInfoDto(2L, "serverName", "tcp://ok:1883", "username", "password", "topic/ok");
+        MqttBrokerInfoDto brokenDto = new MqttBrokerInfoDto(1L, 101L, "serverName", "tcp://broken:1883", "username", "password", "topic/broken");
+        MqttBrokerInfoDto okDto = new MqttBrokerInfoDto(2L, 102L, "serverName", "tcp://ok:1883", "username", "password", "topic/ok");
 
         when(mqttBrokerService.getMqttBrokerInfo()).thenReturn(List.of(brokenDto, okDto));
 

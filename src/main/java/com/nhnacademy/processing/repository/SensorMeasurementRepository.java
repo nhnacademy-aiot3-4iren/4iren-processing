@@ -10,8 +10,8 @@ import java.util.List;
 public interface SensorMeasurementRepository extends JpaRepository<SensorMeasurement, Long> {
     @Query("select sm from SensorMeasurement sm " +
             "join fetch sm.measurementType " +
-            "where sm.sensorDevice.devEui = :devEui")
-    List<SensorMeasurement> findAllByDevEuiWithMeasurementType(@Param("devEui") String devEui);
+            "where sm.sensorDevice.devEui = :devEui and sm.sensorDevice.mqttBrokerInfo.id = :brokerId")
+    List<SensorMeasurement> findAllByDevEuiWithMeasurementType(@Param("devEui") String devEui, @Param("brokerId") Long brokerId);
 
     @Query("select sm from SensorMeasurement sm " +
             "join fetch sm.measurementType mt " +
