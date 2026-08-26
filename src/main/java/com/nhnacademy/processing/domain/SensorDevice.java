@@ -33,8 +33,11 @@ public class SensorDevice {
     @Column(length = 100, nullable = false)
     private String deviceName;
 
-    @Column(nullable = false)
+    @Column
     private Integer roomId;
+
+    @Column(length = 100)
+    private String location;
 
     @Column(length = 50)
     private String point;

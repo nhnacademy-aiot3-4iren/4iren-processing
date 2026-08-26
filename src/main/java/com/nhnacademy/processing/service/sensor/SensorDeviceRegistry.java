@@ -25,11 +25,11 @@ public class SensorDeviceRegistry {
 
     private final SensorDeviceService sensorDeviceService;
 
-    public void ensureRegistered(ParsedSensorMessage message, Long brokerId, int roomId) {
+    public void ensureRegistered(ParsedSensorMessage message, Long brokerId) {
         String devEui = message.device().devEui();
 
         knownDevices.computeIfAbsent(devEui, key -> {
-            sensorDeviceService.registerDeviceIfAbsent(message, key, brokerId, roomId);
+            sensorDeviceService.registerDeviceIfAbsent(message, key, brokerId);
             return Boolean.TRUE;
         });
 

@@ -17,7 +17,7 @@ public class SensorAnomalyLogService {
 
     private final SensorAnomalyLogRepository repository;
 
-    public void log(SensorData data, String devEui, int roomId, ValidationStatus status, Instant time) {
+    public void log(SensorData data, String devEui, Integer roomId, ValidationStatus status, Instant time) {
         try {
             SensorAnomalyLogDocument document = new SensorAnomalyLogDocument(data.measurement(), data.value(), devEui, roomId, status, time);
             repository.save(document);

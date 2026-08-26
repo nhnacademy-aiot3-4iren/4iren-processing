@@ -63,7 +63,7 @@ class EnvironmentContextServiceTest {
     @BeforeEach
     @SuppressWarnings("unchecked")
     void setUp() {
-        device = new DeviceIdentity("applicationId", "applicationName", "deviceProfileId", "deviceName", "devEui1234567890", 101, "point");
+        device = new DeviceIdentity("applicationId", "applicationName", "deviceProfileId", "deviceName", "devEui1234567890", 101, "location", "point");
         now = Instant.now();
 
         lenient().when(redisTemplate.execute(any(SessionCallback.class)))
@@ -240,8 +240,8 @@ class EnvironmentContextServiceTest {
         given(redisOperations.exec())
                 .willAnswer(invocation -> fakeStore.exec());
 
-        DeviceIdentity deviceA = new DeviceIdentity("app", "app", "profile", "device-A", "devEuiA", roomId, "point");
-        DeviceIdentity deviceB = new DeviceIdentity("app", "app", "profile", "device-B", "devEuiB", roomId, "point");
+        DeviceIdentity deviceA = new DeviceIdentity("app", "app", "profile", "device-A", "devEuiA", roomId, "location", "point");
+        DeviceIdentity deviceB = new DeviceIdentity("app", "app", "profile", "device-B", "devEuiB", roomId, "location", "point");
         ParsedSensorMessage messageA = new ParsedSensorMessage(deviceA,
                 List.of(new SensorData(MeasurementCategory.ENVIRONMENT, "temperature", 26.0)), now);
         ParsedSensorMessage messageB = new ParsedSensorMessage(deviceB,

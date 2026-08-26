@@ -7,4 +7,6 @@ import java.util.List;
 
 public interface SensorDeviceRepository extends JpaRepository<SensorDevice, String> {
     List<SensorDevice> findAllByRoomId(Integer roomId);
+
+    List<SensorDevice> findAllByMqttBrokerInfo_Id(Long brokerId);
 }

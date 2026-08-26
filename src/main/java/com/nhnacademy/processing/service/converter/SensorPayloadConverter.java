@@ -41,13 +41,16 @@ public class SensorPayloadConverter {
         }
 
 
-        String point = (event.deviceInfo().tags() == null) ? null : event.deviceInfo().tags().getOrDefault("point", null);
+        var tags = event.deviceInfo().tags();
+        String point = (tags == null) ? null : tags.getOrDefault("point", null);
+        String location = (tags == null) ? null : tags.getOrDefault("location", null);
         DeviceIdentity device = new DeviceIdentity(event.deviceInfo().applicationId(),
                                                     event.deviceInfo().applicationName(),
                                                     event.deviceInfo().deviceProfileId(),
                                                     event.deviceInfo().deviceName(),
                                                     event.deviceInfo().devEui(),
                                                     null,
+                                                    location,
                                                     point);
         List<SensorData> sensorDataList = new ArrayList<>();
         event.object().forEach((measurement, rawValue) -> {

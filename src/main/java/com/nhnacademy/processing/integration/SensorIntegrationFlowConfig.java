@@ -1,9 +1,7 @@
 package com.nhnacademy.processing.integration;
 
-import com.nhnacademy.processing.dto.api.SensorContext;
 import com.nhnacademy.processing.dto.parse.ParsedSensorMessage;
 import com.nhnacademy.processing.service.converter.SensorPayloadConverter;
-import com.nhnacademy.processing.service.process.SensorContextResolver;
 import com.nhnacademy.processing.service.sensor.SensorDeviceRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -18,12 +16,13 @@ import org.springframework.messaging.support.MessageBuilder;
  * 센서 처리 파이프라인 SI 진입 Flow
  *
  * MqttBrokerRegistry -> sensorInputChannel
- *   -> [Transformer]      Raw String Payload -> ParsedSensorMessage    (SensorPayloadConverter)
- *   -> [Header Enricher]  devEui -> roomId 조회 후 헤더에 세팅             (SensorContextResolver, 캐시 그대로 유지)
+ *   -> [Transformer]       Raw String Payload -> ParsedSensorMessage    (SensorPayloadConverter)
+ *   -> [Header Enricher]   ParsedSensorMessage.device().roomId()를 헤더에 세팅 (Core 조회 없이 그대로 전달)
  *   -> [Service Activator] 신규 기기/측정항목 등록, 통과만 시킴               (SensorDeviceRegistry)
- *   -> [Header Enricher]  원본 ParsedSensorMessage를 헤더로 복사           (Splitter 대비)
+ *   -> [Header Enricher]   원본 ParsedSensorMessage를 헤더로 복사           (Splitter 대비)
  *   -> sensorPubSubChannel (DB 저장 / RabbitMQ 발행으로 fan-out)
-
+ *
+ * MQTT로 갓 들어온 신규 기기는 roomId = null 상태로 파싱/등록되며, 이후 단계(SensorMqSubFlowConfig, SensorDbSubFlowConfig)는 roomId가 없는 메시지를 null-safe하게 처리한다.
  */
 @Slf4j
 @Configuration
@@ -31,7 +30,6 @@ public class SensorIntegrationFlowConfig {
 
     @Bean
     public IntegrationFlow sensorProcessingFlow(SensorPayloadConverter payloadConverter,
-                                                SensorContextResolver contextResolver,
                                                 SensorDeviceRegistry sensorDeviceRegistry,
                                                 @Qualifier("sensorErrorChannel") MessageChannel sensorErrorChannel) {
         // 1. SensorInputChannel에서 원시 MQTT 메시지 받아옴
@@ -41,21 +39,17 @@ public class SensorIntegrationFlowConfig {
                 // 2. Raw JSON String -> ParsedSensorMessage 객체로 파싱
                 .transform(payloadConverter, "convert")
 
-                // 3. devEui로 roomId를 조회해서 메시지 헤더에 roomId 세팅
+                // 3. ParsedSensorMessage.device().roomId()를 헤더로 세팅 (없으면 null)
                 .enrichHeaders(h -> h.headerFunction(SensorMessageHeaders.ROOM_ID, message -> {
                     ParsedSensorMessage parsed = (ParsedSensorMessage) message.getPayload();
-                    String devEui = parsed.device().devEui();
-                    SensorContext context = contextResolver.resolve(devEui)
-                            .orElseGet(() -> new SensorContext(devEui, -1, -1));
-                    return context.roomId();
+                    return parsed.device().roomId();
                 }))
 
-                // 4. 디바이스 DB 등록 서비스 호출
+                // 4. 디바이스 DB 등록 서비스 호출 (미등록 기기는 roomId = null 로 등록)
                 .handle(ParsedSensorMessage.class, (payload, headers) -> {
                     Long brokerId = headers.get(SensorMessageHeaders.BROKER_ID, Long.class);
-                    Integer roomId = headers.get(SensorMessageHeaders.ROOM_ID, Integer.class);
                     try {
-                        sensorDeviceRegistry.ensureRegistered(payload, brokerId, roomId);
+                        sensorDeviceRegistry.ensureRegistered(payload, brokerId);
                     } catch (Exception e) {
                         sensorErrorChannel.send(MessageBuilder.withPayload(new SensorErrorFlowConfig.ProcessingFailure(brokerId, e)).build());
                     }

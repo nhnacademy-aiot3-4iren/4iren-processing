@@ -6,6 +6,7 @@ import com.nhnacademy.processing.dto.parse.ParsedSensorMessage;
 import com.nhnacademy.processing.dto.parse.SensorData;
 import com.nhnacademy.processing.dto.sensor.MetricTypeResponse;
 import com.nhnacademy.processing.dto.sensor.SensorInfoResponse;
+import com.nhnacademy.processing.dto.sensor.SensorSummaryResponse;
 import com.nhnacademy.processing.repository.MetricTypeRepository;
 import com.nhnacademy.processing.repository.MqttBrokerInfoRepository;
 import com.nhnacademy.processing.repository.SensorDeviceRepository;
@@ -36,7 +37,7 @@ public class SensorDeviceService {
     private final SensorMeasurementRepository sensorMeasurementRepository;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void registerDeviceIfAbsent(ParsedSensorMessage message, String devEui, Long brokerId, int roomId) {
+    public void registerDeviceIfAbsent(ParsedSensorMessage message, String devEui, Long brokerId) {
         if(sensorDeviceRepository.existsById(devEui)) {
             return;
         }
@@ -52,14 +53,15 @@ public class SensorDeviceService {
                     deviceIdentity.applicationName(),
                     deviceIdentity.deviceProfileId(),
                     deviceIdentity.deviceName(),
-                    roomId,
+                    null,
+                    deviceIdentity.location(),
                     deviceIdentity.point()
             );
 
             sensorDeviceRepository.save(entity);
-            log.info("신규 센서 기기 등록 완료: devEui({}), deviceName({}), roomId({})", devEui, deviceIdentity.deviceName(), roomId);
+            log.info("신규 센서 기기 등록 완료: devEui({}), deviceName({}), location({})", devEui, deviceIdentity.deviceName(), deviceIdentity.location());
         } catch (DataIntegrityViolationException | PessimisticLockingFailureException e) {
-                log.debug("센서 기기 동시 등록 경합 발생 (무시 가능): devEui({})", devEui);
+            log.debug("센서 기기 동시 등록 경합 발생 (무시 가능): devEui({})", devEui);
         }
     }
 
@@ -85,6 +87,20 @@ public class SensorDeviceService {
         sensorMeasurementRepository.findAllByDevEuiWithMeasurementType(devEui)
                 .forEach(m -> set.add(m.getMeasurementType().getCode()));
         return set;
+    }
+
+    @Transactional(readOnly = true)
+    public List<SensorSummaryResponse> getSensorsByBrokerId(Long brokerId) {
+        return sensorDeviceRepository.findAllByMqttBrokerInfo_Id(brokerId).stream()
+                .map(SensorSummaryResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<SensorSummaryResponse> getSensorsByRoomId(Integer roomId) {
+        return sensorDeviceRepository.findAllByRoomId(roomId).stream()
+                .map(SensorSummaryResponse::from)
+                .toList();
     }
 
     @Transactional(readOnly = true)
