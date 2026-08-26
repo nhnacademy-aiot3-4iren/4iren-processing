@@ -53,10 +53,11 @@ public class SensorController {
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "방별 센서 목록 조회", description = "지정한 방(roomId)에 배정된 센서 목록(devEui, deviceName, point)을 반환합니다.")
-    @GetMapping("/sensors/rooms/{roomId}")
-    public ResponseEntity<List<SensorSummaryResponse>> getSensorsByRoom(@PathVariable Integer roomId) {
-        return ResponseEntity.ok(sensorDeviceService.getSensorsByRoomId(roomId));
+    @Operation(summary = "특정 방의 센서 목록 조회", description = "건물(buildingId)과 방(roomId)에 속한 센서 요약 정보를 조회합니다.")
+    @GetMapping("/sensors/buildings/{buildingId}/rooms/{roomId}")
+    public ResponseEntity<List<SensorSummaryResponse>> getSensorsByRoom(@PathVariable Long buildingId,
+                                                                        @PathVariable Integer roomId) {
+        return ResponseEntity.ok(sensorDeviceService.getSensorsByBuildingIdAndRoomId(buildingId, roomId));
     }
 
     @GetMapping("/metric_type")

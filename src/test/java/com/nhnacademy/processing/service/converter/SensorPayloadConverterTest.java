@@ -129,7 +129,7 @@ class SensorPayloadConverterTest {
 
         assertThatThrownBy(() -> converter.convert(invalidJson))
                 .isInstanceOf(SensorPayloadParseException.class)
-                .hasMessageContaining("ChirpStack payload 역직렬화 실패");
+                .hasMessageContaining("ChirpStack payload 파싱 실패");
     }
 
     @Test
@@ -151,20 +151,48 @@ class SensorPayloadConverterTest {
     }
 
     @Test
-    @DisplayName("object 항목이 비어있으면 예외 발생")
-    void convert_EmptyObject() {
+    @DisplayName("object 항목이 비어있어도 예외 발생 없이 rxInfo 기반의 통신 품질 데이터만 파싱한다")
+    void convert_EmptyObject_Success_ExtractsNetworkQuality() {
         String emptyObjectJson = """
                 {
+                  "time": "2026-08-26T07:54:43.824+00:00",
                   "deviceInfo": {
+                    "applicationId": "app-1",
+                    "applicationName": "app",
+                    "deviceProfileId": "prof-1",
+                    "deviceName": "dev-1",
                     "devEui": "1234567890abcdef"
                   },
-                  "object": {}
+                  "object": {},
+                  "rxInfo": [
+                    {
+                      "rssi": -108,
+                      "snr": 1.8
+                    }
+                  ]
                 }
                 """;
 
-        assertThatThrownBy(() -> converter.convert(emptyObjectJson))
-                .isInstanceOf(SensorPayloadParseException.class)
-                .hasMessageContaining("측정값 없음");
+        ParsedSensorMessage message = converter.convert(emptyObjectJson);
+
+        assertThat(message.device().devEui()).isEqualTo("1234567890abcdef");
+
+        List<SensorData> dataList = message.sensorDataList();
+
+        // 환경 데이터(object)는 없으므로 rssi와 snr 두 개만 추출되어야 함
+        assertThat(dataList).hasSize(2);
+
+        assertThat(dataList).anySatisfy(data -> {
+            assertThat(data.category()).isEqualTo(MeasurementCategory.NETWORK_QUALITY);
+            assertThat(data.measurement()).isEqualTo("rssi");
+            assertThat(data.value()).isEqualTo(-108.0);
+        });
+
+        assertThat(dataList).anySatisfy(data -> {
+            assertThat(data.category()).isEqualTo(MeasurementCategory.NETWORK_QUALITY);
+            assertThat(data.measurement()).isEqualTo("snr");
+            assertThat(data.value()).isEqualTo(1.8);
+        });
     }
 
     @Test

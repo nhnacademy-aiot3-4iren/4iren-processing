@@ -9,12 +9,14 @@ import com.nhnacademy.processing.dto.parse.ParsedSensorMessage;
 import com.nhnacademy.processing.dto.parse.SensorData;
 import com.nhnacademy.processing.exception.SensorPayloadParseException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class SensorPayloadConverter {
@@ -26,24 +28,21 @@ public class SensorPayloadConverter {
 
     public ParsedSensorMessage convert(String rawPayload) {
         ChirpStackUplinkEvent event;
-
         try {
             event = objectMapper.readValue(rawPayload, ChirpStackUplinkEvent.class);
         } catch (JsonProcessingException e) {
-            throw new SensorPayloadParseException("ChirpStack payload 역직렬화 실패", e);
+            throw new SensorPayloadParseException("ChirpStack payload 파싱 실패", e);
         }
 
         if(event.deviceInfo() == null || event.deviceInfo().devEui() == null) {
             throw new SensorPayloadParseException("deviceInfo 또는 devEui 누락");
-        }
-        if(event.object() == null || event.object().isEmpty()) {
-            throw new SensorPayloadParseException("측정값 없음(" + event.deviceInfo().devEui());
         }
 
 
         var tags = event.deviceInfo().tags();
         String point = (tags == null) ? null : tags.getOrDefault("point", null);
         String location = (tags == null) ? null : tags.getOrDefault("location", null);
+
         DeviceIdentity device = new DeviceIdentity(event.deviceInfo().applicationId(),
                                                     event.deviceInfo().applicationName(),
                                                     event.deviceInfo().deviceProfileId(),
@@ -52,15 +51,21 @@ public class SensorPayloadConverter {
                                                     null,
                                                     location,
                                                     point);
-        List<SensorData> sensorDataList = new ArrayList<>();
-        event.object().forEach((measurement, rawValue) -> {
-            if(ENV_MEASUREMENTS.contains(measurement)) {
-                sensorDataList.add(new SensorData(MeasurementCategory.ENVIRONMENT, measurement, toDouble(rawValue)));
-            } else if (DEVICE_HEALTH_FIELD.equals(measurement)) {
-                sensorDataList.add(new SensorData(MeasurementCategory.DEVICE_HEALTH, measurement, toDouble(rawValue)));
-            }
-        });
 
+        List<SensorData> sensorDataList = new ArrayList<>();
+
+        // object가 있을 때만 환경 데이터 및 디바이스 상태 파싱
+        if (event.object() != null && !event.object().isEmpty()) {
+            event.object().forEach((measurement, rawValue) -> {
+                if(ENV_MEASUREMENTS.contains(measurement)) {
+                    sensorDataList.add(new SensorData(MeasurementCategory.ENVIRONMENT, measurement, toDouble(rawValue)));
+                } else if (DEVICE_HEALTH_FIELD.equals(measurement)) {
+                    sensorDataList.add(new SensorData(MeasurementCategory.DEVICE_HEALTH, measurement, toDouble(rawValue)));
+                }
+            });
+        }
+
+        // 통신 품질(RSSI, SNR) 데이터는 object 여부와 관계없이 항상 수집
         if(event.rxInfo() != null && !event.rxInfo().isEmpty()) {
             sensorDataList.add(new SensorData(MeasurementCategory.NETWORK_QUALITY, "rssi", toDouble(event.rxInfo().getFirst().rssi())));
             sensorDataList.add(new SensorData(MeasurementCategory.NETWORK_QUALITY, "snr", toDouble(event.rxInfo().getFirst().snr())));

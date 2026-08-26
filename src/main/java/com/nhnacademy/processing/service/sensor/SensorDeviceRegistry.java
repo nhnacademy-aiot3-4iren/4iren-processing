@@ -5,6 +5,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.nhnacademy.processing.domain.SensorDevice;
 import com.nhnacademy.processing.dto.parse.ParsedSensorMessage;
 import com.nhnacademy.processing.dto.rule.MeasurementCategory;
+import com.nhnacademy.processing.dto.sensor.RoomAssignmentResult;
 import com.nhnacademy.processing.dto.sensor.SensorRoomAssignmentRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -49,9 +50,7 @@ public class SensorDeviceRegistry {
         registerMeasurementsIfAbsent(message, devEui, brokerId, cacheKey);
     }
 
-    /**
-     * devEui와 brokerId로 배정된 roomId를 캐시/DB에서 조회
-     */
+    // devEui와 brokerId로 배정된 roomId를 캐시/DB에서 조회
     public Integer resolveRoomId(String devEui, Long brokerId) {
         if (devEui == null || brokerId == null) {
             return null;
@@ -63,14 +62,12 @@ public class SensorDeviceRegistry {
         return (roomIdOpt != null && roomIdOpt.isPresent()) ? roomIdOpt.get() : null;
     }
 
-    /**
-     * 관리자가 방을 배정했을 때 즉시 캐시 갱신/무효화
-     */
+    // 관리자가 방을 배정했을 때 즉시 캐시 갱신/무효화
     public void assignRoomsAndEvictCache(List<SensorRoomAssignmentRequest> requests) {
-        List<SensorDevice> updatedDevices = sensorDeviceService.assignRooms(requests);
-        for (SensorDevice device : updatedDevices) {
-            String cacheKey = getCacheKey(device.getDevEui(), device.getMqttBrokerInfo().getId());
-            roomIdCache.put(cacheKey, Optional.ofNullable(device.getRoomId()));
+        List<RoomAssignmentResult> updatedDevices = sensorDeviceService.assignRooms(requests);
+        for (RoomAssignmentResult result : updatedDevices) {
+            String cacheKey = getCacheKey(result.devEui(), result.brokerId());
+            roomIdCache.put(cacheKey, Optional.ofNullable(result.roomId()));
         }
     }
 

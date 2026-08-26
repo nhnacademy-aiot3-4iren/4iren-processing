@@ -5,9 +5,7 @@ import com.nhnacademy.processing.dto.parse.DeviceIdentity;
 import com.nhnacademy.processing.dto.parse.ParsedSensorMessage;
 import com.nhnacademy.processing.dto.parse.SensorData;
 import com.nhnacademy.processing.dto.rule.MeasurementCategory;
-import com.nhnacademy.processing.dto.sensor.MetricTypeResponse;
-import com.nhnacademy.processing.dto.sensor.SensorInfoResponse;
-import com.nhnacademy.processing.dto.sensor.SensorSummaryResponse;
+import com.nhnacademy.processing.dto.sensor.*;
 import com.nhnacademy.processing.repository.MetricTypeRepository;
 import com.nhnacademy.processing.repository.MqttBrokerInfoRepository;
 import com.nhnacademy.processing.repository.SensorDeviceRepository;
@@ -29,14 +27,11 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class SensorDeviceServiceTest {
-    @Mock
-    private SensorDeviceRepository sensorDeviceRepository;
-    @Mock
-    private MqttBrokerInfoRepository mqttBrokerInfoRepository;
-    @Mock
-    private MetricTypeRepository metricTypeRepository;
-    @Mock
-    private SensorMeasurementRepository sensorMeasurementRepository;
+
+    @Mock private SensorDeviceRepository sensorDeviceRepository;
+    @Mock private MqttBrokerInfoRepository mqttBrokerInfoRepository;
+    @Mock private MetricTypeRepository metricTypeRepository;
+    @Mock private SensorMeasurementRepository sensorMeasurementRepository;
 
     @InjectMocks
     private SensorDeviceService service;
@@ -61,7 +56,7 @@ class SensorDeviceServiceTest {
     @DisplayName("DB에 존재하지 않는 devEui는 sensor_devices 테이블에 저장")
     void registerNewDevice_Success() {
         ParsedSensorMessage message = createMessage();
-        when(sensorDeviceRepository.existsById(DEV_EUI)).thenReturn(false);
+        when(sensorDeviceRepository.existsByDevEuiAndMqttBrokerInfo_Id(DEV_EUI, BROKER_ID)).thenReturn(false);
         when(mqttBrokerInfoRepository.getReferenceById(BROKER_ID)).thenReturn(mock(MqttBrokerInfo.class));
 
         service.registerDeviceIfAbsent(message, DEV_EUI, BROKER_ID);
@@ -73,7 +68,7 @@ class SensorDeviceServiceTest {
     @DisplayName("DB에 존재하는 devEui는 그냥 리턴")
     void registerDevice_AlreadyExists_SkipSave() {
         ParsedSensorMessage message = createMessage();
-        when(sensorDeviceRepository.existsById(DEV_EUI)).thenReturn(true);
+        when(sensorDeviceRepository.existsByDevEuiAndMqttBrokerInfo_Id(DEV_EUI, BROKER_ID)).thenReturn(true);
 
         service.registerDeviceIfAbsent(message, DEV_EUI, BROKER_ID);
 
@@ -84,7 +79,7 @@ class SensorDeviceServiceTest {
     @DisplayName("동시성 경합 발생해도 중지되지 않음")
     void registerDevice_ConcurrencyConflict() {
         ParsedSensorMessage message = createMessage();
-        when(sensorDeviceRepository.existsById(DEV_EUI)).thenReturn(false);
+        when(sensorDeviceRepository.existsByDevEuiAndMqttBrokerInfo_Id(DEV_EUI, BROKER_ID)).thenReturn(false);
         when(mqttBrokerInfoRepository.getReferenceById(BROKER_ID)).thenReturn(mock(MqttBrokerInfo.class));
         doThrow(new DataIntegrityViolationException("Duplicate key")).when(sensorDeviceRepository).save(any(SensorDevice.class));
 
@@ -168,6 +163,40 @@ class SensorDeviceServiceTest {
     }
 
     @Test
+    @DisplayName("devEui와 brokerId로 할당된 roomId를 반환")
+    void findRoomId_Success() {
+        SensorDevice mockDevice = mock(SensorDevice.class);
+        when(mockDevice.getRoomId()).thenReturn(ROOM_ID);
+        when(sensorDeviceRepository.findByDevEuiAndMqttBrokerInfo_Id(DEV_EUI, BROKER_ID))
+                .thenReturn(Optional.of(mockDevice));
+
+        Integer result = service.findRoomId(DEV_EUI, BROKER_ID);
+
+        assertThat(result).isEqualTo(ROOM_ID);
+    }
+
+    @Test
+    @DisplayName("SensorRoomAssignmentRequest 목록을 받아 기기에 방을 배정하고 RoomAssignmentResult 레코드 반환 (OSIV 제거)")
+    void assignRooms_Success() {
+        SensorRoomAssignmentRequest request = new SensorRoomAssignmentRequest(DEV_EUI, BUILDING_ID, 202);
+        MqttBrokerInfo mockBroker = mock(MqttBrokerInfo.class);
+        when(mockBroker.getId()).thenReturn(BROKER_ID);
+
+        SensorDevice device = new SensorDevice(DEV_EUI, mockBroker, "appId", "appName", "profile1", "온습도센서", null, "강의실", "전면");
+
+        when(sensorDeviceRepository.findByDevEuiAndMqttBrokerInfo_BuildingId(DEV_EUI, BUILDING_ID))
+                .thenReturn(Optional.of(device));
+
+        List<RoomAssignmentResult> results = service.assignRooms(List.of(request));
+
+        assertThat(results).hasSize(1);
+        assertThat(results.getFirst().devEui()).isEqualTo(DEV_EUI);
+        assertThat(results.getFirst().brokerId()).isEqualTo(BROKER_ID);
+        assertThat(results.getFirst().roomId()).isEqualTo(202);
+        assertThat(device.getRoomId()).isEqualTo(202);
+    }
+
+    @Test
     @DisplayName("buildingId로 센서 요약 목록 조회")
     void getSensorsByBrokerId_Success() {
         SensorDevice device = new SensorDevice(DEV_EUI, mock(MqttBrokerInfo.class), "appId", "appName", "profile1", "온습도센서", ROOM_ID, "강의실", "전면");
@@ -181,12 +210,13 @@ class SensorDeviceServiceTest {
     }
 
     @Test
-    @DisplayName("roomId로 센서 요약 목록 조회")
-    void getSensorsByRoomId_Success() {
+    @DisplayName("buildingId와 roomId로 센서 요약 목록 조회 (Building 스코프 제한)")
+    void getSensorsByBuildingIdAndRoomId_Success() {
         SensorDevice device = new SensorDevice(DEV_EUI, mock(MqttBrokerInfo.class), "appId", "appName", "profile1", "온습도센서", ROOM_ID, "강의실", "전면");
-        when(sensorDeviceRepository.findAllByRoomId(ROOM_ID)).thenReturn(List.of(device));
+        when(sensorDeviceRepository.findAllByMqttBrokerInfo_BuildingIdAndRoomId(BUILDING_ID, ROOM_ID))
+                .thenReturn(List.of(device));
 
-        List<SensorSummaryResponse> responses = service.getSensorsByRoomId(ROOM_ID);
+        List<SensorSummaryResponse> responses = service.getSensorsByBuildingIdAndRoomId(BUILDING_ID, ROOM_ID);
 
         assertThat(responses).hasSize(1);
         assertThat(responses.getFirst().devEui()).isEqualTo(DEV_EUI);

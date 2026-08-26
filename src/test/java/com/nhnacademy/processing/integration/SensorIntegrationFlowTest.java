@@ -79,6 +79,9 @@ class SensorIntegrationFlowTest {
 
         doNothing().when(sensorDeviceRegistry).ensureRegistered(any(), any());
 
+        // 새로 추가된 roomId 조회 로직에 대한 Mocking 추가
+        when(sensorDeviceRegistry.resolveRoomId(eq("devEui123"), eq(BROKER_ID))).thenReturn(VALID_ROOM_ID);
+
         MessageConverter mockConverter = mock(MessageConverter.class);
         when(mockConverter.toMessage(any(), any(MessageProperties.class)))
                 .thenReturn(new Message("dummy".getBytes()));
@@ -179,6 +182,9 @@ class SensorIntegrationFlowTest {
         ParsedSensorMessage parsedMessage = new ParsedSensorMessage(nullRoomIdDevice, List.of(healthData), Instant.now());
 
         when(payloadConverter.convert(RAW_PAYLOAD)).thenReturn(parsedMessage);
+
+        // 이 테스트에 한해 캐시/DB 조회 결과가 null이 나오도록 오버라이딩
+        when(sensorDeviceRegistry.resolveRoomId(eq("devEui123"), eq(BROKER_ID))).thenReturn(null);
 
         sendRawPayload();
 
