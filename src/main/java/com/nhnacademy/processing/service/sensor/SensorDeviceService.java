@@ -4,10 +4,7 @@ import com.nhnacademy.processing.domain.*;
 import com.nhnacademy.processing.dto.parse.DeviceIdentity;
 import com.nhnacademy.processing.dto.parse.ParsedSensorMessage;
 import com.nhnacademy.processing.dto.parse.SensorData;
-import com.nhnacademy.processing.dto.sensor.MetricTypeResponse;
-import com.nhnacademy.processing.dto.sensor.SensorInfoResponse;
-import com.nhnacademy.processing.dto.sensor.SensorRoomAssignmentRequest;
-import com.nhnacademy.processing.dto.sensor.SensorSummaryResponse;
+import com.nhnacademy.processing.dto.sensor.*;
 import com.nhnacademy.processing.repository.MetricTypeRepository;
 import com.nhnacademy.processing.repository.MqttBrokerInfoRepository;
 import com.nhnacademy.processing.repository.SensorDeviceRepository;
@@ -91,20 +88,23 @@ public class SensorDeviceService {
     // devEui와 brokerId로 배정된 roomId 조회
     @Transactional(readOnly = true)
     public Integer findRoomId(String devEui, Long brokerId) {
-        return sensorDeviceRepository.findByDevEuiAndMqttBrokerInfo_Id(devEui, brokerId)
-                .map(SensorDevice::getRoomId)
-                .orElse(null);
+        // 기존의 무거운 findByDevEuiAndMqttBrokerInfo_Id 대신 최적화 쿼리 사용
+        return sensorDeviceRepository.findRoomIdOnly(devEui, brokerId).orElse(null);
     }
 
-    // roomId 배정 후 갱신된 SensorDevice 목록 반환 (캐시 갱신용)
     @Transactional
-    public List<SensorDevice> assignRooms(List<SensorRoomAssignmentRequest> requests) {
+    public List<RoomAssignmentResult> assignRooms(List<SensorRoomAssignmentRequest> requests) {
         return requests.stream()
                 .map(request -> sensorDeviceRepository
                         .findByDevEuiAndMqttBrokerInfo_BuildingId(request.devEui(), request.buildingId())
                         .map(device -> {
                             device.assignRoom(request.roomId());
-                            return device;
+                            // 엔티티 대신 순수 레코드로 매핑하여 반환
+                            return new RoomAssignmentResult(
+                                    device.getDevEui(),
+                                    device.getMqttBrokerInfo().getId(),
+                                    device.getRoomId()
+                            );
                         })
                         .orElseGet(() -> {
                             log.warn("roomId 매칭 대상 센서 기기를 찾을 수 없음: devEui({}), buildingId({})",
@@ -118,6 +118,13 @@ public class SensorDeviceService {
     @Transactional(readOnly = true)
     public List<SensorSummaryResponse> getSensorsByBuildingId(Long buildingId) {
         return sensorDeviceRepository.findAllByMqttBrokerInfo_BuildingId(buildingId).stream()
+                .map(SensorSummaryResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<SensorSummaryResponse> getSensorsByBuildingIdAndRoomId(Long buildingId, Integer roomId) {
+        return sensorDeviceRepository.findAllByMqttBrokerInfo_BuildingIdAndRoomId(buildingId, roomId).stream()
                 .map(SensorSummaryResponse::from)
                 .toList();
     }
