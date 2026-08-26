@@ -165,10 +165,7 @@ class SensorDeviceServiceTest {
     @Test
     @DisplayName("devEui와 brokerId로 할당된 roomId를 반환")
     void findRoomId_Success() {
-        SensorDevice mockDevice = mock(SensorDevice.class);
-        when(mockDevice.getRoomId()).thenReturn(ROOM_ID);
-        when(sensorDeviceRepository.findByDevEuiAndMqttBrokerInfo_Id(DEV_EUI, BROKER_ID))
-                .thenReturn(Optional.of(mockDevice));
+        when(sensorDeviceRepository.findRoomIdOnly(DEV_EUI, BROKER_ID)).thenReturn(Optional.of(ROOM_ID));
 
         Integer result = service.findRoomId(DEV_EUI, BROKER_ID);
 
