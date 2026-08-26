@@ -26,6 +26,8 @@ class MqttBrokerServiceTest {
     @InjectMocks
     private MqttBrokerService service;
 
+    private final Long buildingId = 101L;
+
     @Test
     @DisplayName("활성화된 브로커 목록을 반환")
     void testGetMqttBrokerInfo() {
@@ -43,6 +45,7 @@ class MqttBrokerServiceTest {
     void testRegisterMqttBroker() {
         // Given
         MqttBrokerCreateRequest request = new MqttBrokerCreateRequest(
+                buildingId,
                 "NHN Academy Broker",
                 "tcp://localhost:1883",
                 "user",
@@ -50,9 +53,10 @@ class MqttBrokerServiceTest {
                 "application/+/device/+/event/up"
         );
 
-        // repository.save() 호출 시 반환될 Mock Entity 설정 (ID가 부여된 상태로 가정)
+        // repository.save() 호출 시 반환될 Mock Entity 설정 (buildingId 포함 생성자 사용)
         MqttBrokerInfo savedEntity = new MqttBrokerInfo(
                 1L,
+                buildingId,
                 request.serverName(),
                 request.brokerUrl(),
                 request.username(),
@@ -68,6 +72,7 @@ class MqttBrokerServiceTest {
         // Then
         assertThat(result).isNotNull();
         assertThat(result.id()).isEqualTo(1L);
+        assertThat(result.buildingId()).isEqualTo(buildingId);
         assertThat(result.serverName()).isEqualTo("NHN Academy Broker");
         assertThat(result.brokerUrl()).isEqualTo("tcp://localhost:1883");
         assertThat(result.username()).isEqualTo("user");

@@ -1,8 +1,12 @@
 package com.nhnacademy.processing.dto.mqtt;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
 public record MqttBrokerCreateRequest(
+
+        @NotNull(message = "building ID는 필수입니다.")
+        Long buildingId,
 
         @NotBlank(message = "서버 이름은 필수입니다.")
         String serverName,

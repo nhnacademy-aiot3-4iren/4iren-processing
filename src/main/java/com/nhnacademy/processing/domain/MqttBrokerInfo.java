@@ -19,12 +19,16 @@ public class MqttBrokerInfo {
     private String serverName;
 
     @Column(nullable = false)
+    private Long buildingId;
+
+    @Column(nullable = false)
     private String brokerUrl;
 
     @Column(length = 100)
     private String username;
 
-    private String password;    // todo: 암호화가 필요할거 같은데 아직 잘 모르겠음
+    @Column(length = 255)
+    private String password;
 
     @Column(nullable = false)
     private String topic;
@@ -32,8 +36,9 @@ public class MqttBrokerInfo {
     @Column(nullable = false)
     private Boolean enabled;
 
-    public MqttBrokerInfo(Long id, String serverName, String brokerUrl, String username, String password, String topic) {
+    public MqttBrokerInfo(Long id, Long buildingId, String serverName, String brokerUrl, String username, String password, String topic) {
         this.id = id;
+        this.buildingId = buildingId;
         this.serverName = serverName;
         this.brokerUrl = brokerUrl;
         this.username = username;
@@ -43,7 +48,8 @@ public class MqttBrokerInfo {
     }
 
 
-    public MqttBrokerInfo(String serverName, String brokerUrl, String username, String password, String topic) {
+    public MqttBrokerInfo(Long buildingId, String serverName, String brokerUrl, String username, String password, String topic) {
+        this.buildingId = buildingId;
         this.serverName = serverName;
         this.brokerUrl = brokerUrl;
         this.username = username;

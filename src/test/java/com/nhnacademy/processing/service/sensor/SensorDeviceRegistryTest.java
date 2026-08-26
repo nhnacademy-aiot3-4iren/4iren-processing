@@ -36,7 +36,7 @@ class SensorDeviceRegistryTest {
         DeviceIdentity device = new DeviceIdentity("app1", "app", "prof1", "dev1", DEV_EUI, ROOM_ID, "location", "point");
         ParsedSensorMessage message = new ParsedSensorMessage(device, List.of(), Instant.now());
 
-        when(sensorDeviceService.loadKnownMeasurements(DEV_EUI)).thenReturn(Set.of());
+        when(sensorDeviceService.loadKnownMeasurements(DEV_EUI, BROKER_ID)).thenReturn(Set.of());
 
         // when 1차 수신
         registry.ensureRegistered(message, BROKER_ID);
@@ -59,15 +59,15 @@ class SensorDeviceRegistryTest {
 
         ParsedSensorMessage message = new ParsedSensorMessage(device, List.of(co2Data, batteryData, rssiData), Instant.now());
 
-        when(sensorDeviceService.loadKnownMeasurements(DEV_EUI)).thenReturn(Set.of());
+        when(sensorDeviceService.loadKnownMeasurements(DEV_EUI, BROKER_ID)).thenReturn(Set.of());
 
         // when
         registry.ensureRegistered(message, BROKER_ID);
 
         // then: co2에 대해서만 registerMeasurement 호출
-        verify(sensorDeviceService, times(1)).registerMeasurement(eq(DEV_EUI), eq(co2Data), any());
-        verify(sensorDeviceService, never()).registerMeasurement(eq(DEV_EUI), eq(batteryData), any());
-        verify(sensorDeviceService, never()).registerMeasurement(eq(DEV_EUI), eq(rssiData), any());
+        verify(sensorDeviceService, times(1)).registerMeasurement(eq(DEV_EUI), eq(BROKER_ID), eq(co2Data), any());
+        verify(sensorDeviceService, never()).registerMeasurement(eq(DEV_EUI), eq(BROKER_ID), eq(batteryData), any());
+        verify(sensorDeviceService, never()).registerMeasurement(eq(DEV_EUI), eq(BROKER_ID), eq(rssiData), any());
     }
 
     @Test
@@ -79,12 +79,12 @@ class SensorDeviceRegistryTest {
         ParsedSensorMessage message = new ParsedSensorMessage(device, List.of(co2Data), Instant.now());
 
         // DB에서 이미 co2가 등록되어 있음으로 응답 설정
-        when(sensorDeviceService.loadKnownMeasurements(DEV_EUI)).thenReturn(Set.of("co2"));
+        when(sensorDeviceService.loadKnownMeasurements(DEV_EUI, BROKER_ID)).thenReturn(Set.of("co2"));
 
         // when
         registry.ensureRegistered(message, BROKER_ID);
 
         // then
-        verify(sensorDeviceService, never()).registerMeasurement(any(), any(), any());
+        verify(sensorDeviceService, never()).registerMeasurement(any(), any(), any(), any());
     }
 }

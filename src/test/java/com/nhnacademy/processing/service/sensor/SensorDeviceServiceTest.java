@@ -7,6 +7,7 @@ import com.nhnacademy.processing.dto.parse.SensorData;
 import com.nhnacademy.processing.dto.rule.MeasurementCategory;
 import com.nhnacademy.processing.dto.sensor.MetricTypeResponse;
 import com.nhnacademy.processing.dto.sensor.SensorInfoResponse;
+import com.nhnacademy.processing.dto.sensor.SensorSummaryResponse;
 import com.nhnacademy.processing.repository.MetricTypeRepository;
 import com.nhnacademy.processing.repository.MqttBrokerInfoRepository;
 import com.nhnacademy.processing.repository.SensorDeviceRepository;
@@ -43,6 +44,7 @@ class SensorDeviceServiceTest {
     private static final String DEV_EUI = "123456789abcdefg";
     private static final Long BROKER_ID = 1L;
     private static final int ROOM_ID = 11;
+    private static final Long BUILDING_ID = 101L;
 
     private ParsedSensorMessage createMessage() {
         return new ParsedSensorMessage(
@@ -97,11 +99,13 @@ class SensorDeviceServiceTest {
         Set<String> known = new HashSet<>();
         MeasurementUnit unit = new MeasurementUnit(1L, "[ppm]", "백만분율", "ppm");
         MetricType type = new MetricType(1L, unit, "co2", "이산화탄소 농도", MetricKind.GAUGE, MetricTypeStatus.ACTIVE, "co2");
+        SensorDevice mockDevice = mock(SensorDevice.class);
 
         when(metricTypeRepository.findByCode("co2")).thenReturn(Optional.of(type));
-        when(sensorDeviceRepository.getReferenceById(DEV_EUI)).thenReturn(mock(SensorDevice.class));
+        when(sensorDeviceRepository.findByDevEuiAndMqttBrokerInfo_Id(DEV_EUI, BROKER_ID))
+                .thenReturn(Optional.of(mockDevice));
 
-        service.registerMeasurement(DEV_EUI, data, known);
+        service.registerMeasurement(DEV_EUI, BROKER_ID, data, known);
 
         verify(sensorMeasurementRepository, times(1)).save(any(SensorMeasurement.class));
         assertThat(known).contains("co2");
@@ -115,30 +119,35 @@ class SensorDeviceServiceTest {
 
         when(metricTypeRepository.findByCode("unknown")).thenReturn(Optional.empty());
 
-        service.registerMeasurement(DEV_EUI, data, known);
+        service.registerMeasurement(DEV_EUI, BROKER_ID, data, known);
 
+        verify(sensorDeviceRepository, never()).findByDevEuiAndMqttBrokerInfo_Id(any(), any());
         verify(sensorMeasurementRepository, never()).save(any());
         assertThat(known).doesNotContain("unknown");
     }
 
     @Test
-    @DisplayName("동시성 경합 발생해도 중단되지 않음")
+    @DisplayName("동시성 경합 발생해도 중단되지 않고 캐시에 추가")
     void registerMeasurement_ConcurrencyConflict() {
         SensorData data = new SensorData(MeasurementCategory.ENVIRONMENT, "co2", 1000.0);
         Set<String> known = new HashSet<>();
         MeasurementUnit unit = new MeasurementUnit(1L, "[ppm]", "백만분율", "ppm");
         MetricType type = new MetricType(1L, unit, "co2", "이산화탄소 농도", MetricKind.GAUGE, MetricTypeStatus.ACTIVE, "co2");
+        SensorDevice mockDevice = mock(SensorDevice.class);
 
         when(metricTypeRepository.findByCode("co2")).thenReturn(Optional.of(type));
-        when(sensorDeviceRepository.getReferenceById(DEV_EUI)).thenReturn(mock(SensorDevice.class));
-        doThrow(new DataIntegrityViolationException("Duplicate Key")).when(sensorMeasurementRepository).save(any(SensorMeasurement.class));
+        when(sensorDeviceRepository.findByDevEuiAndMqttBrokerInfo_Id(DEV_EUI, BROKER_ID))
+                .thenReturn(Optional.of(mockDevice));
+        doThrow(new DataIntegrityViolationException("Duplicate Key"))
+                .when(sensorMeasurementRepository).save(any(SensorMeasurement.class));
 
-        assertThatCode(() -> service.registerMeasurement(DEV_EUI, data, known))
+        assertThatCode(() -> service.registerMeasurement(DEV_EUI, BROKER_ID, data, known))
                 .doesNotThrowAnyException();
+        assertThat(known).contains("co2");
     }
 
     @Test
-    @DisplayName("특정 devEui에 연관된 기존 측정항목 이름 집합 반환")
+    @DisplayName("특정 devEui 및 brokerId에 연관된 기존 측정항목 이름 집합 반환")
     void loadKnownMeasurements_Success() {
         SensorDevice device = mock(SensorDevice.class);
         MeasurementUnit unit1 = new MeasurementUnit(1L, "[ppm]", "백만분율", "ppm");
@@ -150,11 +159,37 @@ class SensorDeviceServiceTest {
         SensorMeasurement m1 = new SensorMeasurement(device, co2Type);
         SensorMeasurement m2 = new SensorMeasurement(device, tempType);
 
-        when(sensorMeasurementRepository.findAllByDevEuiWithMeasurementType(DEV_EUI)).thenReturn(List.of(m1, m2));
+        when(sensorMeasurementRepository.findAllByDevEuiWithMeasurementType(DEV_EUI, BROKER_ID))
+                .thenReturn(List.of(m1, m2));
 
-        Set<String> result = service.loadKnownMeasurements(DEV_EUI);
+        Set<String> result = service.loadKnownMeasurements(DEV_EUI, BROKER_ID);
 
         assertThat(result).containsExactlyInAnyOrder("co2", "temperature");
+    }
+
+    @Test
+    @DisplayName("buildingId로 센서 요약 목록 조회")
+    void getSensorsByBrokerId_Success() {
+        SensorDevice device = new SensorDevice(DEV_EUI, mock(MqttBrokerInfo.class), "appId", "appName", "profile1", "온습도센서", ROOM_ID, "강의실", "전면");
+        when(sensorDeviceRepository.findAllByMqttBrokerInfo_BuildingId(BUILDING_ID)).thenReturn(List.of(device));
+
+        List<SensorSummaryResponse> responses = service.getSensorsByBuildingId(BUILDING_ID);
+
+        assertThat(responses).hasSize(1);
+        assertThat(responses.getFirst().devEui()).isEqualTo(DEV_EUI);
+        assertThat(responses.getFirst().deviceName()).isEqualTo("온습도센서");
+    }
+
+    @Test
+    @DisplayName("roomId로 센서 요약 목록 조회")
+    void getSensorsByRoomId_Success() {
+        SensorDevice device = new SensorDevice(DEV_EUI, mock(MqttBrokerInfo.class), "appId", "appName", "profile1", "온습도센서", ROOM_ID, "강의실", "전면");
+        when(sensorDeviceRepository.findAllByRoomId(ROOM_ID)).thenReturn(List.of(device));
+
+        List<SensorSummaryResponse> responses = service.getSensorsByRoomId(ROOM_ID);
+
+        assertThat(responses).hasSize(1);
+        assertThat(responses.getFirst().devEui()).isEqualTo(DEV_EUI);
     }
 
     @Test
@@ -162,7 +197,7 @@ class SensorDeviceServiceTest {
     void getSensorTopologyByRoomId_Success() {
         MqttBrokerInfo mockBroker = mock(MqttBrokerInfo.class);
         SensorDevice device1 = new SensorDevice("dev1", mockBroker, "appId", "appName", "profile1", "온습도센서", ROOM_ID, "강의실", "전면");
-        SensorDevice device2 = new SensorDevice("dev2", mockBroker, "appId", "appName", "profile2", "CO2센서", ROOM_ID, "강의실","후면");
+        SensorDevice device2 = new SensorDevice("dev2", mockBroker, "appId", "appName", "profile2", "CO2센서", ROOM_ID, "강의실", "후면");
 
         MeasurementUnit unitPpm = new MeasurementUnit(1L, "[ppm]", "백만분율", "ppm");
         MetricType co2Type = new MetricType(1L, unitPpm, "co2", "이산화탄소", MetricKind.GAUGE, MetricTypeStatus.ACTIVE, "co2");
@@ -302,7 +337,7 @@ class SensorDeviceServiceTest {
 
         SensorMeasurement m1 = new SensorMeasurement(1L, device1, co2Type, true);
         SensorMeasurement m2 = new SensorMeasurement(2L, device1, tempType, true);
-        SensorMeasurement m3 = new SensorMeasurement(3L, device2, co2Type, true); // device2는 co2만 측정
+        SensorMeasurement m3 = new SensorMeasurement(3L, device2, co2Type, true);
 
         when(sensorMeasurementRepository.findAllByDevEuiInWithMetricTypeAndUnit(devEuis))
                 .thenReturn(List.of(m1, m2, m3));
@@ -322,11 +357,9 @@ class SensorDeviceServiceTest {
     @Test
     @DisplayName("devEuis 리스트가 null이거나 비어있으면 빈 Map을 반환한다")
     void getMetricTypesByDevEuis_Empty() {
-        // When
         Map<String, List<MetricTypeResponse>> resultEmpty = service.getMetricTypesByDevEuis(List.of());
         Map<String, List<MetricTypeResponse>> resultNull = service.getMetricTypesByDevEuis(null);
 
-        // Then
         assertThat(resultEmpty).isEmpty();
         assertThat(resultNull).isEmpty();
         verify(sensorMeasurementRepository, never()).findAllByDevEuiInWithMetricTypeAndUnit(any());

@@ -27,7 +27,7 @@ public class EnvironmentContextService {
     private final RedisTemplate<String, EnvironmentContext> environmentContextRedisTemplate;
 
     public Optional<EnvironmentContext> updateContext(ParsedSensorMessage message, Integer roomId) {
-        if (roomId == null || roomId < 0 || message.device() == null) {
+        if (roomId == null || message.device() == null) {
             return Optional.empty();
         }
 

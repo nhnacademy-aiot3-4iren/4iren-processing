@@ -27,21 +27,22 @@ public class SensorDeviceRegistry {
 
     public void ensureRegistered(ParsedSensorMessage message, Long brokerId) {
         String devEui = message.device().devEui();
+        String cacheKey = devEui + "@" + brokerId;
 
-        knownDevices.computeIfAbsent(devEui, key -> {
-            sensorDeviceService.registerDeviceIfAbsent(message, key, brokerId);
+        knownDevices.computeIfAbsent(cacheKey, key -> {
+            sensorDeviceService.registerDeviceIfAbsent(message, devEui, brokerId);
             return Boolean.TRUE;
         });
 
-        registerMeasurementsIfAbsent(message, devEui);
+        registerMeasurementsIfAbsent(message, devEui, brokerId, cacheKey);
     }
 
-    private void registerMeasurementsIfAbsent(ParsedSensorMessage message, String devEui) {
-        Set<String> known = knownMeasurementsCache.get(devEui, sensorDeviceService::loadKnownMeasurements);
+    private void registerMeasurementsIfAbsent(ParsedSensorMessage message, String devEui, Long brokerId, String cacheKey) {
+        Set<String> known = knownMeasurementsCache.get(cacheKey, key -> sensorDeviceService.loadKnownMeasurements(devEui, brokerId));
 
         message.sensorDataList().stream()
                 .filter(data -> data.category() == MeasurementCategory.ENVIRONMENT)
                 .filter(data -> !known.contains(data.measurement()))
-                .forEach(data -> sensorDeviceService.registerMeasurement(devEui, data, known));
+                .forEach(data -> sensorDeviceService.registerMeasurement(devEui, brokerId, data, known));
     }
 }

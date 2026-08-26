@@ -6,6 +6,7 @@ import com.nhnacademy.processing.dto.parse.ParsedSensorMessage;
 import com.nhnacademy.processing.dto.parse.SensorData;
 import com.nhnacademy.processing.dto.sensor.MetricTypeResponse;
 import com.nhnacademy.processing.dto.sensor.SensorInfoResponse;
+import com.nhnacademy.processing.dto.sensor.SensorRoomAssignmentRequest;
 import com.nhnacademy.processing.dto.sensor.SensorSummaryResponse;
 import com.nhnacademy.processing.repository.MetricTypeRepository;
 import com.nhnacademy.processing.repository.MqttBrokerInfoRepository;
@@ -66,32 +67,42 @@ public class SensorDeviceService {
     }
 
     @Transactional
-    public void registerMeasurement(String devEui, SensorData data, Set<String> known) {
-        metricTypeRepository.findByCode(data.measurement()).ifPresentOrElse(type -> {
-            try {
-                SensorDevice deviceProxy = sensorDeviceRepository.getReferenceById(devEui);
-                SensorMeasurement measurement = new SensorMeasurement(deviceProxy, type);
+    public void registerMeasurement(String devEui, Long brokerId, SensorData data, Set<String> known) {
+        metricTypeRepository.findByCode(data.measurement()).ifPresentOrElse(type ->
+                        sensorDeviceRepository.findByDevEuiAndMqttBrokerInfo_Id(devEui, brokerId).ifPresentOrElse(device -> {
+                            try {
+                                SensorMeasurement measurement = new SensorMeasurement(device, type);
 
-                sensorMeasurementRepository.save(measurement);
-                known.add(data.measurement());
-                log.info("센서 측정항목 연결 완료: devEui={}, measurement({})(ID:{})", devEui, data.measurement(), type.getId());
-            } catch (DataIntegrityViolationException e) {
-                known.add(data.measurement());
-            }
-        }, () -> log.warn("measurement_types 테이블에 정의되지 않은 측정항목: {}", data.measurement()));
+                                sensorMeasurementRepository.save(measurement);
+                                known.add(data.measurement());
+                                log.info("센서 측정항목 연결 완료: devEui={}, measurement({})(ID:{})", devEui, data.measurement(), type.getId());
+                            } catch (DataIntegrityViolationException e) {
+                                known.add(data.measurement());
+                            }
+                        }, () -> log.warn("등록되지 않은 센서 기기: devEui({}), brokerId({})", devEui, brokerId)),
+                () -> log.warn("measurement_types 테이블에 정의되지 않은 측정항목: {}", data.measurement()));
     }
 
     @Transactional(readOnly = true)
-    public Set<String> loadKnownMeasurements(String devEui) {
+    public Set<String> loadKnownMeasurements(String devEui, Long brokerId) {
         Set<String> set = ConcurrentHashMap.newKeySet();
-        sensorMeasurementRepository.findAllByDevEuiWithMeasurementType(devEui)
+        sensorMeasurementRepository.findAllByDevEuiWithMeasurementType(devEui, brokerId)
                 .forEach(m -> set.add(m.getMeasurementType().getCode()));
         return set;
     }
 
+    @Transactional
+    public void assignRooms(List<SensorRoomAssignmentRequest> requests) {
+        requests.forEach(request ->
+                sensorDeviceRepository.findById(request.sensorDeviceId()).ifPresentOrElse(
+                        device -> device.assignRoom(request.roomId()),
+                        () -> log.warn("roomId 매칭 대상 센서 기기를 찾을 수 없음: sensorDeviceId({})", request.sensorDeviceId())
+                ));
+    }
+
     @Transactional(readOnly = true)
-    public List<SensorSummaryResponse> getSensorsByBrokerId(Long brokerId) {
-        return sensorDeviceRepository.findAllByMqttBrokerInfo_Id(brokerId).stream()
+    public List<SensorSummaryResponse> getSensorsByBuildingId(Long buildingId) {
+        return sensorDeviceRepository.findAllByMqttBrokerInfo_BuildingId(buildingId).stream()
                 .map(SensorSummaryResponse::from)
                 .toList();
     }

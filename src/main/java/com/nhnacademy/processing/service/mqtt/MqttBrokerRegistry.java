@@ -1,5 +1,6 @@
 package com.nhnacademy.processing.service.mqtt;
 
+import com.nhnacademy.processing.exception.MqttBrokerConnectionException;
 import com.nhnacademy.processing.integration.SensorErrorFlowConfig;
 import com.nhnacademy.processing.integration.SensorMessageHeaders;
 import com.nhnacademy.processing.dto.mqtt.MqttBrokerInfoDto;
@@ -85,7 +86,8 @@ public class MqttBrokerRegistry {
             log.info("브로커 등록됨: brokerId({}), url({})", brokerId, info.brokerUrl());
         } catch (Exception e) {
             log.error("브로커 등록 실패: brokerId({}), url({})", brokerId, info.brokerUrl(), e);
-            throw new IllegalStateException("MQTT 브로커 연결/등록 실패: " + info.brokerUrl(), e); // 예외 재발생
+            throw new MqttBrokerConnectionException(
+                    "MQTT 브로커 연결/구독에 실패했습니다. URL, username/password, topic을 확인해주세요: " + info.brokerUrl(), e); // 사용자 입력(브로커 정보) 오류 -> 400으로 응답되어야 함
         }
     }
 

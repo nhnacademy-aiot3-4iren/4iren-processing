@@ -35,8 +35,9 @@ class MqttBrokerControllerTest {
     @MockitoBean private MqttBrokerService mqttBrokerService;
     @MockitoBean private MqttBrokerRegistry mqttBrokerRegistry;
 
-    private final MqttBrokerCreateRequest validRequest() {
+    private MqttBrokerCreateRequest validRequest() {
         return new MqttBrokerCreateRequest(
+                101L,
                 "broker",
                 "tcp://localhost:1883",
                 "testUser",
@@ -52,6 +53,7 @@ class MqttBrokerControllerTest {
 
         MqttBrokerInfoDto responseDto = new MqttBrokerInfoDto(
                 1L,
+                101L,
                 request.serverName(),
                 request.brokerUrl(),
                 request.username(),
@@ -112,7 +114,7 @@ class MqttBrokerControllerTest {
     @DisplayName("요청 바디 검증 실패 400")
     void registerBroker_failValidation() throws Exception {
         MqttBrokerCreateRequest invalidRequest = new MqttBrokerCreateRequest(
-                "", "", null, null, ""
+                101L, "", "", null, null, ""
         );
 
         mockMvc.perform(post("/api/processing/mqtt")
@@ -127,7 +129,7 @@ class MqttBrokerControllerTest {
     @DisplayName("Registry 등록 실패 시 Service에서 브로커 삭제")
     void registerBroker_registryFailure_rollback() throws Exception {
         MqttBrokerInfoDto mockDto = new MqttBrokerInfoDto(
-                1L, "Test-Broker", "tcp://localhost:1883", "user", "pass", "sensor/#"
+                1L, 101L, "Test-Broker", "tcp://localhost:1883", "user", "pass", "sensor/#"
         );
 
         when(mqttBrokerService.register(any(MqttBrokerCreateRequest.class))).thenReturn(mockDto);

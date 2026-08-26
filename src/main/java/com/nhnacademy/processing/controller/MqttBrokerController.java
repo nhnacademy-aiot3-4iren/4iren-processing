@@ -29,7 +29,7 @@ public class MqttBrokerController {
     @Operation(summary = "MQTT 브로커 등록", description = "새로운 MQTT 브로커를 DB에 저장하고 메시지 인바운드 플로우를 활성화합니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "브로커 등록 성공"),
-            @ApiResponse(responseCode = "400", description = "요청 DTO 유효성 검증 실패 또는 등록 오류"),
+            @ApiResponse(responseCode = "400", description = "요청 DTO 유효성 검증 실패, 또는 URL/username/password가 잘못되어 MQTT 구독(연결)에 실패"),
             @ApiResponse(responseCode = "403", description = "관리자 권한 없음")
     })
     @RequireAdmin

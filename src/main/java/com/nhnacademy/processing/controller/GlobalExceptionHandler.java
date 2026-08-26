@@ -1,5 +1,6 @@
 package com.nhnacademy.processing.controller;
 
+import com.nhnacademy.processing.exception.MqttBrokerConnectionException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -34,7 +35,15 @@ public class GlobalExceptionHandler {
                 .body(Map.of("message", errorMessage));
     }
 
-    // 3. 그 외 서버 내부 예외(IllegalStateException 등) -> 500 Internal Server Error
+    // 3. MQTT 브로커 정보(URL/username/password/topic)가 잘못되어 구독(연결) 자체에 실패한 경우 -> 400 Bad Request
+    @ExceptionHandler(MqttBrokerConnectionException.class)
+    public ResponseEntity<Map<String, String>> handleMqttBrokerConnectionException(MqttBrokerConnectionException e) {
+        log.warn("MqttBrokerConnectionException: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("message", e.getMessage()));
+    }
+
+    // 4. 그 외 서버 내부 예외(IllegalStateException 등) -> 500 Internal Server Error
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, String>> handleException(Exception e) {
         log.error("Unhandled Exception: ", e);
