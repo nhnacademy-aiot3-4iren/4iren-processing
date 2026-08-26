@@ -1,8 +1,14 @@
 package com.nhnacademy.processing.controller;
 
+import com.nhnacademy.processing.auth.AuthUser;
+import com.nhnacademy.processing.auth.LoginUser;
+import com.nhnacademy.processing.auth.RequireAdmin;
 import com.nhnacademy.processing.dto.sensor.*;
+import com.nhnacademy.processing.service.sensor.SensorDeviceRegistry;
 import com.nhnacademy.processing.service.sensor.SensorDeviceService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -12,13 +18,14 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
-@Tag(name = "Sensor API", description = "센서 및 메트릭 조회 (인증 불필요)")
+@Tag(name = "Sensor API", description = "센서 조회 및 관리 API")
 @RestController
 @RequestMapping("/api/processing")
 @RequiredArgsConstructor
 public class SensorController {
 
     private final SensorDeviceService sensorDeviceService;
+    private final SensorDeviceRegistry sensorDeviceRegistry;
 
     @GetMapping("/sensors")
     public ResponseEntity<List<SensorInfoResponse>> getSensorList(@RequestParam int roomId) {
@@ -31,10 +38,18 @@ public class SensorController {
         return ResponseEntity.ok(sensorDeviceService.getSensorsByBuildingId(buildingId));
     }
 
-    @Operation(summary = "센서-Room 매칭", description = "사용자가 매칭한 sensorDevice와 roomId 목록을 받아 각 센서의 roomId를 갱신합니다.")
+    @Operation(summary = "센서-Room 매칭 (ADMIN)", description = "등록된 sensorDevice에 roomId를 할당합니다. (ADMIN 권한 필요)")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "매칭 성공"),
+            @ApiResponse(responseCode = "400", description = "요청 DTO 유효성 검증 실패"),
+            @ApiResponse(responseCode = "401", description = "인증 헤더 누락"),
+            @ApiResponse(responseCode = "403", description = "관리자 권한 없음")
+    })
+    @RequireAdmin
     @PatchMapping("/sensors/rooms")
-    public ResponseEntity<Void> assignRooms(@Valid @RequestBody List<SensorRoomAssignmentRequest> requests) {
-        sensorDeviceService.assignRooms(requests);
+    public ResponseEntity<Void> assignRooms(@LoginUser AuthUser authUser,
+                                            @Valid @RequestBody List<SensorRoomAssignmentRequest> requests) {
+        sensorDeviceRegistry.assignRoomsAndEvictCache(requests);
         return ResponseEntity.noContent().build();
     }
 

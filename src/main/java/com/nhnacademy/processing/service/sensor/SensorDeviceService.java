@@ -20,10 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -39,7 +36,7 @@ public class SensorDeviceService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void registerDeviceIfAbsent(ParsedSensorMessage message, String devEui, Long brokerId) {
-        if(sensorDeviceRepository.existsById(devEui)) {
+        if(sensorDeviceRepository.existsByDevEuiAndMqttBrokerInfo_Id(devEui, brokerId)) {
             return;
         }
 
@@ -91,13 +88,31 @@ public class SensorDeviceService {
         return set;
     }
 
+    // devEui와 brokerId로 배정된 roomId 조회
+    @Transactional(readOnly = true)
+    public Integer findRoomId(String devEui, Long brokerId) {
+        return sensorDeviceRepository.findByDevEuiAndMqttBrokerInfo_Id(devEui, brokerId)
+                .map(SensorDevice::getRoomId)
+                .orElse(null);
+    }
+
+    // roomId 배정 후 갱신된 SensorDevice 목록 반환 (캐시 갱신용)
     @Transactional
-    public void assignRooms(List<SensorRoomAssignmentRequest> requests) {
-        requests.forEach(request ->
-                sensorDeviceRepository.findById(request.sensorDeviceId()).ifPresentOrElse(
-                        device -> device.assignRoom(request.roomId()),
-                        () -> log.warn("roomId 매칭 대상 센서 기기를 찾을 수 없음: sensorDeviceId({})", request.sensorDeviceId())
-                ));
+    public List<SensorDevice> assignRooms(List<SensorRoomAssignmentRequest> requests) {
+        return requests.stream()
+                .map(request -> sensorDeviceRepository
+                        .findByDevEuiAndMqttBrokerInfo_BuildingId(request.devEui(), request.buildingId())
+                        .map(device -> {
+                            device.assignRoom(request.roomId());
+                            return device;
+                        })
+                        .orElseGet(() -> {
+                            log.warn("roomId 매칭 대상 센서 기기를 찾을 수 없음: devEui({}), buildingId({})",
+                                    request.devEui(), request.buildingId());
+                            return null;
+                        }))
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     @Transactional(readOnly = true)

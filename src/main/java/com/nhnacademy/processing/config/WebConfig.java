@@ -16,10 +16,14 @@ public class WebConfig implements WebMvcConfigurer {
 
     private final AuthenticationInterceptor authenticationInterceptor;
     private final AuthUserArgumentResolver authUserArgumentResolver;
+
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(authenticationInterceptor)
-                .addPathPatterns("/api/processing/mqtt/**");
+                .addPathPatterns(
+                        "/api/processing/mqtt/**",
+                        "/api/processing/sensors/rooms"
+                );
     }
 
     @Override

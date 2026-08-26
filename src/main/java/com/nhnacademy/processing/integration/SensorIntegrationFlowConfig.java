@@ -42,7 +42,8 @@ public class SensorIntegrationFlowConfig {
                 // 3. ParsedSensorMessage.device().roomId()를 헤더로 세팅 (없으면 null)
                 .enrichHeaders(h -> h.headerFunction(SensorMessageHeaders.ROOM_ID, message -> {
                     ParsedSensorMessage parsed = (ParsedSensorMessage) message.getPayload();
-                    return parsed.device().roomId();
+                    Long brokerId = (Long) message.getHeaders().get(SensorMessageHeaders.BROKER_ID);
+                    return sensorDeviceRegistry.resolveRoomId(parsed.device().devEui(), brokerId); // DB/캐시 조회
                 }))
 
                 // 4. 디바이스 DB 등록 서비스 호출 (미등록 기기는 roomId = null 로 등록)
