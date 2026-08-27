@@ -6,4 +6,4 @@ spring:
     import: ${CONFIG_SERVER_URL:optional:configserver:http://localhost:8888}
 
   profiles:
-    active: dev
+    active: prod
