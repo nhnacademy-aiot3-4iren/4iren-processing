@@ -82,7 +82,6 @@ jobs:
           JACOCO_FILE=$(find . -name "jacoco.xml" -path "*/target/site/jacoco/jacoco.xml" | head -n 1)
 
           if [ -n "$JACOCO_FILE" ]; then
-            # 들여쓰기 에러를 막기 위해 파이썬 코드를 한 줄로 압축했습니다.
             COVERAGE=$(python3 -c "import xml.etree.ElementTree as ET; root = ET.parse('$JACOCO_FILE').getroot(); c = [int(n.attrib.get('covered',0)) for n in root if n.tag=='counter' and n.attrib.get('type')=='LINE']; m = [int(n.attrib.get('missed',0)) for n in root if n.tag=='counter' and n.attrib.get('type')=='LINE']; t = c[0]+m[0] if c else 0; print(f'{(c[0]/t)*100:.1f}' if t>0 else '0.0')" 2>/dev/null || echo "0.0")
             echo "COVERAGE_PERCENT=$COVERAGE" >> $GITHUB_ENV
           else
