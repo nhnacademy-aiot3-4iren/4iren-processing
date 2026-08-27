@@ -76,5 +76,5 @@ jobs:
           
           # 2. 기존 컨테이너 멈추고 새 컨테이너 띄우기
           cd ${{ env.DOCKER_DIR }}
-          docker compose pull ${{ env.IMAGE_NAME }}-1 ${{ env.IMAGE_NAME }}-2
-          docker compose up -d ${{ env.IMAGE_NAME }}-1 ${{ env.IMAGE_NAME }}-2
+          docker compose pull
+          docker compose up -d
