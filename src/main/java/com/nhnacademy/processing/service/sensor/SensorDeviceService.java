@@ -1,6 +1,8 @@
 package com.nhnacademy.processing.service.sensor;
 
-import com.nhnacademy.processing.domain.*;
+import com.nhnacademy.processing.domain.MqttBrokerInfo;
+import com.nhnacademy.processing.domain.SensorDevice;
+import com.nhnacademy.processing.domain.SensorMeasurement;
 import com.nhnacademy.processing.dto.parse.DeviceIdentity;
 import com.nhnacademy.processing.dto.parse.ParsedSensorMessage;
 import com.nhnacademy.processing.dto.parse.SensorData;
@@ -33,7 +35,7 @@ public class SensorDeviceService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void registerDeviceIfAbsent(ParsedSensorMessage message, String devEui, Long brokerId) {
-        if(sensorDeviceRepository.existsByDevEuiAndMqttBrokerInfo_Id(devEui, brokerId)) {
+        if (sensorDeviceRepository.existsByDevEuiAndMqttBrokerInfo_Id(devEui, brokerId)) {
             return;
         }
 
@@ -164,17 +166,27 @@ public class SensorDeviceService {
     @Transactional(readOnly = true)
     public Map<String, List<MetricTypeResponse>> getMetricTypesByDevEuis(List<String> devEuis) {
         if (devEuis == null || devEuis.isEmpty()) {
-            return Collections.emptyMap();
+            return Map.of();
         }
 
         List<SensorMeasurement> measurements =
                 sensorMeasurementRepository.findAllByDevEuiInWithMetricTypeAndUnit(devEuis);
 
-        return measurements.stream()
+        Map<String, List<MetricTypeResponse>> metricsByDevEui = measurements.stream()
                 .collect(Collectors.groupingBy(
-                        sm -> sm.getSensorDevice().getDevEui(),
-                        Collectors.mapping(MetricTypeResponse::from, Collectors.toList())
+                        measurement -> measurement.getSensorDevice().getDevEui(),
+                        Collectors.mapping(MetricTypeResponse::from, Collectors.toUnmodifiableList())
                 ));
+
+        Map<String, List<MetricTypeResponse>> result = new LinkedHashMap<>();
+        devEuis.stream()
+                .distinct()
+                .forEach(devEui -> result.put(
+                        devEui,
+                        metricsByDevEui.getOrDefault(devEui, List.of())
+                ));
+
+        return Collections.unmodifiableMap(result);
     }
 
     // ================== 내부 조립(Mapping) 로직 ==================

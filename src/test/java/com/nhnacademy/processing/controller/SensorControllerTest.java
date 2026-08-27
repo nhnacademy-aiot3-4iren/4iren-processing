@@ -173,12 +173,13 @@ class SensorControllerTest {
     @Test
     @DisplayName("다수의 devEui 리스트를 받아 해당하는 메트릭 타입 목록 조회")
     void getMetricTypeCatalog_Batch_Success() throws Exception {
-        List<String> devEuis = List.of("dev1", "dev2");
+        List<String> devEuis = List.of("dev1", "dev2", "dev3");
         SensorBatchRequest request = new SensorBatchRequest(devEuis);
 
         Map<String, List<MetricTypeResponse>> responseMap = Map.of(
                 "dev1", List.of(new MetricTypeResponse("co2", "이산화탄소", "GAUGE", "ACTIVE", "농도", "[ppm]", "백만분율", "ppm")),
-                "dev2", List.of(new MetricTypeResponse("temperature", "온도", "GAUGE", "ACTIVE", "섭씨", "Cel", "섭씨", "°C"))
+                "dev2", List.of(new MetricTypeResponse("temperature", "온도", "GAUGE", "ACTIVE", "섭씨", "Cel", "섭씨", "°C")),
+                "dev3", List.of()
         );
 
         when(sensorDeviceService.getMetricTypesByDevEuis(devEuis)).thenReturn(responseMap);
@@ -191,7 +192,9 @@ class SensorControllerTest {
                 .andExpect(jsonPath("$.dev1").isArray())
                 .andExpect(jsonPath("$.dev1[0].metricCode").value("co2"))
                 .andExpect(jsonPath("$.dev2").isArray())
-                .andExpect(jsonPath("$.dev2[0].metricCode").value("temperature"));
+                .andExpect(jsonPath("$.dev2[0].metricCode").value("temperature"))
+                .andExpect(jsonPath("$.dev3").isArray())
+                .andExpect(jsonPath("$.dev3").isEmpty());
 
         verify(sensorDeviceService).getMetricTypesByDevEuis(anyList());
     }
