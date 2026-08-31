@@ -66,9 +66,18 @@ public class SensorPayloadConverter {
         }
 
         // 통신 품질(RSSI, SNR) 데이터는 object 여부와 관계없이 항상 수집
-        if(event.rxInfo() != null && !event.rxInfo().isEmpty()) {
-            sensorDataList.add(new SensorData(MeasurementCategory.NETWORK_QUALITY, "rssi", toDouble(event.rxInfo().getFirst().rssi())));
-            sensorDataList.add(new SensorData(MeasurementCategory.NETWORK_QUALITY, "snr", toDouble(event.rxInfo().getFirst().snr())));
+        if (event.rxInfo() != null && !event.rxInfo().isEmpty()) {
+            event.rxInfo().stream()
+                    .filter(rx -> rx.snr() != null)
+                    .findFirst()
+                    .ifPresentOrElse(
+                            rx -> {
+                                sensorDataList.add(new SensorData(MeasurementCategory.NETWORK_QUALITY, "rssi", toDouble(rx.rssi())));
+                                sensorDataList.add(new SensorData(MeasurementCategory.NETWORK_QUALITY, "snr", toDouble(rx.snr())));
+                            },
+                            () -> log.debug("모든 rxInfo에 snr 값이 없어 네트워크 품질 데이터를 생략함: devEui={}",
+                                    event.deviceInfo().devEui())
+                    );
         }
 
         return new ParsedSensorMessage(device, sensorDataList, event.time());
@@ -76,6 +85,7 @@ public class SensorPayloadConverter {
 
     private double toDouble(Object value) {
         return switch (value) {
+            case null -> 0.0;
             case Number num -> num.doubleValue();
             case Boolean bool -> bool ? 1.0 : 0.0;
             case String str -> strToDouble(str);
