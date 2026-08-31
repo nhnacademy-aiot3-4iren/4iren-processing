@@ -5,6 +5,9 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Entity
 @Table(name = "mqtt_broker_info")
 @Getter
@@ -35,6 +38,9 @@ public class MqttBrokerInfo {
 
     @Column(nullable = false)
     private Boolean enabled;
+
+    @OneToMany(mappedBy = "mqttBrokerInfo", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<SensorDevice> sensorDevices = new ArrayList<>();
 
     public MqttBrokerInfo(Long id, Long buildingId, String serverName, String brokerUrl, String username, String password, String topic) {
         this.id = id;

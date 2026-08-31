@@ -40,6 +40,19 @@ public class MqttBrokerService {
 
     @Transactional
     public void delete(Long id) {
-        mqttBrokerInfoRepository.deleteById(id);
+        mqttBrokerInfoRepository.findById(id)
+                .ifPresent(mqttBrokerInfoRepository::delete);
+    }
+
+    @Transactional
+    public List<Long> deleteByBuildingId(Long buildingId) {
+        List<MqttBrokerInfo> brokers = mqttBrokerInfoRepository.findAllByBuildingId(buildingId);
+        if (brokers.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> brokerIds = brokers.stream().map(MqttBrokerInfo::getId).toList();
+        mqttBrokerInfoRepository.deleteAll(brokers);
+        return brokerIds;
     }
 }

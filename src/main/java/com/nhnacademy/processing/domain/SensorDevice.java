@@ -6,6 +6,9 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Entity
 @Table(
         name = "sensor_devices",
@@ -52,6 +55,9 @@ public class SensorDevice {
 
     @Column(length = 50)
     private String point;
+
+    @OneToMany(mappedBy = "sensorDevice", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<SensorMeasurement> sensorMeasurements = new ArrayList<>();
 
     public SensorDevice(String devEui, MqttBrokerInfo mqttBrokerInfo, String applicationId, String applicationName,
                         String deviceProfileId, String deviceName, Integer roomId, String location, String point) {

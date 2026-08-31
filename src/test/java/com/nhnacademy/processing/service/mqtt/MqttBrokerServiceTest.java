@@ -12,6 +12,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -83,13 +84,33 @@ class MqttBrokerServiceTest {
     }
 
     @Test
-    @DisplayName("특정 ID의 브로커 정보 삭제")
+    @DisplayName("특정 ID의 브로커 정보 삭제 - 존재하는 경우 삭제 수행")
     void testDeleteMqttBroker() {
+        // Given
         Long brokerId = 1L;
-        doNothing().when(repository).deleteById(brokerId);
+        MqttBrokerInfo brokerInfo = mock(MqttBrokerInfo.class);
+        when(repository.findById(brokerId)).thenReturn(Optional.of(brokerInfo));
 
+        // When
         service.delete(brokerId);
 
-        verify(repository, times(1)).deleteById(brokerId);
+        // Then
+        verify(repository, times(1)).findById(brokerId);
+        verify(repository, times(1)).delete(brokerInfo);
+    }
+
+    @Test
+    @DisplayName("특정 ID의 브로커 정보 삭제 - 존재하지 않는 경우 삭제하지 않음")
+    void testDeleteMqttBroker_NotFound() {
+        // Given
+        Long brokerId = 1L;
+        when(repository.findById(brokerId)).thenReturn(Optional.empty());
+
+        // When
+        service.delete(brokerId);
+
+        // Then
+        verify(repository, times(1)).findById(brokerId);
+        verify(repository, never()).delete(any(MqttBrokerInfo.class));
     }
 }
