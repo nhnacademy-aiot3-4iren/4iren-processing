@@ -5,6 +5,10 @@ public record AuthUser(
         Role role
 ) {
     public boolean isAdmin() {
-        return this.role == Role.ADMIN;
+        return this.role == Role.ADMIN || this.role == Role.OWNER;
+    }
+
+    public boolean isManagerOrAdmin() {
+        return this.role == Role.ADMIN || this.role == Role.OWNER;
     }
 }
