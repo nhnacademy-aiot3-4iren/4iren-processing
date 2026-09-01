@@ -13,12 +13,14 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+@Slf4j
 @Tag(name = "MQTT Broker API", description = "MQTT 브로커 등록 및 관리 (ADMIN 전용)")
 @RestController
 @RequestMapping("/api/processing/mqtt")
@@ -28,9 +30,11 @@ public class MqttBrokerController {
     private final MqttBrokerService mqttBrokerService;
     private final MqttBrokerRegistry mqttBrokerRegistry;
 
+    @RequireAdmin
     @Operation(summary = "건물별 MQTT 브로커 조회", description = "빌딩에 등록된 MQTT 브로커 정보를 조회합니다.")
     @GetMapping("/building/{buildingId}")
-    public ResponseEntity<MqttBrokerInfoDto> getBrokerByBuilding(@PathVariable Long buildingId) {
+    public ResponseEntity<MqttBrokerInfoDto> getBrokerByBuilding(@LoginUser AuthUser authUser,
+                                                                 @PathVariable Long buildingId) {
         return mqttBrokerService.getBrokerByBuildingId(buildingId)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.ok(null));
@@ -66,7 +70,11 @@ public class MqttBrokerController {
     public ResponseEntity<Void> deleteBroker(@LoginUser AuthUser authUser,
                                              @PathVariable Long id) {
         mqttBrokerService.delete(id);
-        mqttBrokerRegistry.unregisterBroker(id);
+        try {
+            mqttBrokerRegistry.unregisterBroker(id);
+        } catch (Exception e) {
+            log.error("런타임 MQTT 브로커 구독 해제 실패 (DB는 삭제 완료): brokerId={}", id, e);
+        }
         return ResponseEntity.noContent().build();
     }
 
@@ -80,7 +88,13 @@ public class MqttBrokerController {
     public ResponseEntity<Void> deleteBrokersByBuilding(@LoginUser AuthUser authUser,
                                                         @PathVariable Long buildingId) {
         List<Long> deletedBrokerIds = mqttBrokerService.deleteByBuildingId(buildingId);
-        deletedBrokerIds.forEach(mqttBrokerRegistry::unregisterBroker);
+        for (Long brokerId : deletedBrokerIds) {
+            try {
+                mqttBrokerRegistry.unregisterBroker(brokerId);
+            } catch (Exception e) {
+                log.error("런타임 MQTT 브로커 구독 해제 실패: brokerId={}", brokerId, e);
+            }
+        }
         return ResponseEntity.noContent().build();
     }
 }

@@ -4,6 +4,8 @@ import com.nhnacademy.processing.domain.MqttBrokerInfo;
 import com.nhnacademy.processing.dto.mqtt.MqttBrokerCreateRequest;
 import com.nhnacademy.processing.dto.mqtt.MqttBrokerInfoDto;
 import com.nhnacademy.processing.repository.MqttBrokerInfoRepository;
+import com.nhnacademy.processing.repository.SensorDeviceRepository;
+import com.nhnacademy.processing.repository.SensorMeasurementRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +18,8 @@ import java.util.Optional;
 public class MqttBrokerService {
 
     private final MqttBrokerInfoRepository mqttBrokerInfoRepository;
+    private final SensorMeasurementRepository sensorMeasurementRepository;
+    private final SensorDeviceRepository sensorDeviceRepository;
 
     @Transactional(readOnly = true)
     public List<MqttBrokerInfoDto> getMqttBrokerInfo() {
@@ -48,6 +52,8 @@ public class MqttBrokerService {
 
     @Transactional
     public void delete(Long id) {
+        sensorMeasurementRepository.deleteAllByBrokerId(id);
+        sensorDeviceRepository.deleteAllByBrokerId(id);
         mqttBrokerInfoRepository.findById(id)
                 .ifPresent(mqttBrokerInfoRepository::delete);
     }
@@ -58,9 +64,12 @@ public class MqttBrokerService {
         if (brokers.isEmpty()) {
             return List.of();
         }
-
         List<Long> brokerIds = brokers.stream().map(MqttBrokerInfo::getId).toList();
+
+        sensorMeasurementRepository.deleteAllByBuildingId(buildingId);
+        sensorDeviceRepository.deleteAllByBuildingId(buildingId);
         mqttBrokerInfoRepository.deleteAll(brokers);
+
         return brokerIds;
     }
 }

@@ -4,11 +4,11 @@ public record AuthUser(
         Long id,
         Role role
 ) {
-    public boolean isAdmin() {
+    public boolean hasAdminPrivilege() {
         return this.role == Role.ADMIN || this.role == Role.OWNER;
     }
 
-    public boolean isManagerOrAdmin() {
-        return this.role == Role.ADMIN || this.role == Role.OWNER;
+    public boolean isAdmin() {
+        return hasAdminPrivilege();
     }
 }
