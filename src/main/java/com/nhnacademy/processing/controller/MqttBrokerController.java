@@ -28,6 +28,14 @@ public class MqttBrokerController {
     private final MqttBrokerService mqttBrokerService;
     private final MqttBrokerRegistry mqttBrokerRegistry;
 
+    @Operation(summary = "건물별 MQTT 브로커 조회", description = "빌딩에 등록된 MQTT 브로커 정보를 조회합니다.")
+    @GetMapping("/building/{buildingId}")
+    public ResponseEntity<MqttBrokerInfoDto> getBrokerByBuilding(@PathVariable Long buildingId) {
+        return mqttBrokerService.getBrokerByBuildingId(buildingId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.ok(null));
+    }
+
     @Operation(summary = "MQTT 브로커 등록", description = "새로운 MQTT 브로커를 DB에 저장하고 메시지 인바운드 플로우를 활성화합니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "브로커 등록 성공"),
