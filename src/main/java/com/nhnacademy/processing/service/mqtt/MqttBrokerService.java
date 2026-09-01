@@ -4,17 +4,22 @@ import com.nhnacademy.processing.domain.MqttBrokerInfo;
 import com.nhnacademy.processing.dto.mqtt.MqttBrokerCreateRequest;
 import com.nhnacademy.processing.dto.mqtt.MqttBrokerInfoDto;
 import com.nhnacademy.processing.repository.MqttBrokerInfoRepository;
+import com.nhnacademy.processing.repository.SensorDeviceRepository;
+import com.nhnacademy.processing.repository.SensorMeasurementRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
 public class MqttBrokerService {
 
     private final MqttBrokerInfoRepository mqttBrokerInfoRepository;
+    private final SensorMeasurementRepository sensorMeasurementRepository;
+    private final SensorDeviceRepository sensorDeviceRepository;
 
     @Transactional(readOnly = true)
     public List<MqttBrokerInfoDto> getMqttBrokerInfo() {
@@ -38,8 +43,33 @@ public class MqttBrokerService {
         return MqttBrokerInfoDto.from(savedEntity);
     }
 
+    @Transactional(readOnly = true)
+    public Optional<MqttBrokerInfoDto> getBrokerByBuildingId(Long buildingId) {
+        return mqttBrokerInfoRepository.findAllByBuildingId(buildingId).stream()
+                .findFirst()
+                .map(MqttBrokerInfoDto::from);
+    }
+
     @Transactional
     public void delete(Long id) {
-        mqttBrokerInfoRepository.deleteById(id);
+        sensorMeasurementRepository.deleteAllByBrokerId(id);
+        sensorDeviceRepository.deleteAllByBrokerId(id);
+        mqttBrokerInfoRepository.findById(id)
+                .ifPresent(mqttBrokerInfoRepository::delete);
+    }
+
+    @Transactional
+    public List<Long> deleteByBuildingId(Long buildingId) {
+        List<MqttBrokerInfo> brokers = mqttBrokerInfoRepository.findAllByBuildingId(buildingId);
+        if (brokers.isEmpty()) {
+            return List.of();
+        }
+        List<Long> brokerIds = brokers.stream().map(MqttBrokerInfo::getId).toList();
+
+        sensorMeasurementRepository.deleteAllByBuildingId(buildingId);
+        sensorDeviceRepository.deleteAllByBuildingId(buildingId);
+        mqttBrokerInfoRepository.deleteAll(brokers);
+
+        return brokerIds;
     }
 }

@@ -13,19 +13,25 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 public class RedisConfig {
 
     @Bean
-    public RedisTemplate<String, EnvironmentContext> environmentContextRedisTemplate(RedisConnectionFactory connectionFactory,
-                                                                                     ObjectMapper objectMapper) {
-        RedisTemplate<String, EnvironmentContext> template = new RedisTemplate<>();
+    public RedisTemplate<String, EnvironmentContext.MetricInfo> environmentContextRedisTemplate(RedisConnectionFactory connectionFactory,
+                                                                                                ObjectMapper objectMapper) {
+
+        RedisTemplate<String, EnvironmentContext.MetricInfo> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
 
-        Jackson2JsonRedisSerializer<EnvironmentContext> valueSerializer = new Jackson2JsonRedisSerializer<>(objectMapper, EnvironmentContext.class);
+        Jackson2JsonRedisSerializer<EnvironmentContext.MetricInfo> metricInfoSerializer =
+                new Jackson2JsonRedisSerializer<>(objectMapper, EnvironmentContext.MetricInfo.class);
+        StringRedisSerializer stringSerializer = new StringRedisSerializer();
 
-        template.setKeySerializer(new StringRedisSerializer());
-        template.setValueSerializer(valueSerializer);
-        template.setHashKeySerializer(new StringRedisSerializer());
-        template.setHashValueSerializer(valueSerializer);
+        // Key: "env:context:{roomId}"
+        template.setKeySerializer(stringSerializer);
+        template.setValueSerializer(metricInfoSerializer);
+
+        // Hash Field: "temperature", "co2" / Hash Value: MetricInfo JSON
+        template.setHashKeySerializer(stringSerializer);
+        template.setHashValueSerializer(metricInfoSerializer);
+
         template.afterPropertiesSet();
-
         return template;
     }
 }

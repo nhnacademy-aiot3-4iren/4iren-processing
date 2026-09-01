@@ -13,10 +13,14 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
+@Slf4j
 @Tag(name = "MQTT Broker API", description = "MQTT 브로커 등록 및 관리 (ADMIN 전용)")
 @RestController
 @RequestMapping("/api/processing/mqtt")
@@ -25,6 +29,16 @@ public class MqttBrokerController {
 
     private final MqttBrokerService mqttBrokerService;
     private final MqttBrokerRegistry mqttBrokerRegistry;
+
+    @RequireAdmin
+    @Operation(summary = "건물별 MQTT 브로커 조회", description = "빌딩에 등록된 MQTT 브로커 정보를 조회합니다.")
+    @GetMapping("/building/{buildingId}")
+    public ResponseEntity<MqttBrokerInfoDto> getBrokerByBuilding(@LoginUser AuthUser authUser,
+                                                                 @PathVariable Long buildingId) {
+        return mqttBrokerService.getBrokerByBuildingId(buildingId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.ok(null));
+    }
 
     @Operation(summary = "MQTT 브로커 등록", description = "새로운 MQTT 브로커를 DB에 저장하고 메시지 인바운드 플로우를 활성화합니다.")
     @ApiResponses({
@@ -46,17 +60,41 @@ public class MqttBrokerController {
         return ResponseEntity.status(HttpStatus.CREATED).body(broker);
     }
 
-    @Operation(summary = "MQTT 브로커 삭제", description = "브로커 연동 플로우를 해제하고 브로커 정보를 삭제합니다.")
+    @Operation(summary = "MQTT 브로커 삭제", description = "브로커 정보(및 하위 디바이스/측정 데이터)를 DB에서 먼저 삭제하고, 성공한 경우에만 런타임 구독을 해제합니다.")
     @ApiResponses({
-            @ApiResponse(responseCode = "204", description = "브로커 삭제 완료"),
+            @ApiResponse(responseCode = "204", description = "브로커 삭제 완료(대상이 없었어도 204)"),
             @ApiResponse(responseCode = "403", description = "관리자 권한 없음")
     })
     @RequireAdmin
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteBroker(@LoginUser AuthUser authUser,
                                              @PathVariable Long id) {
-        mqttBrokerRegistry.unregisterBroker(id);
         mqttBrokerService.delete(id);
+        try {
+            mqttBrokerRegistry.unregisterBroker(id);
+        } catch (Exception e) {
+            log.error("런타임 MQTT 브로커 구독 해제 실패 (DB는 삭제 완료): brokerId={}", id, e);
+        }
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "빌딩 소속 MQTT 브로커 일괄 삭제", description = "Core에서 빌딩(및 하위 룸)을 삭제할 때 호출하는 API. 해당 buildingId에 등록된 브로커를 하위 디바이스/측정 데이터까지 cascade로 삭제하고, 성공한 브로커에 한해 런타임 구독을 해제합니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "삭제 완료(대상이 없었어도 204)"),
+            @ApiResponse(responseCode = "403", description = "관리자 권한 없음")
+    })
+    @RequireAdmin
+    @DeleteMapping("/building/{buildingId}")
+    public ResponseEntity<Void> deleteBrokersByBuilding(@LoginUser AuthUser authUser,
+                                                        @PathVariable Long buildingId) {
+        List<Long> deletedBrokerIds = mqttBrokerService.deleteByBuildingId(buildingId);
+        for (Long brokerId : deletedBrokerIds) {
+            try {
+                mqttBrokerRegistry.unregisterBroker(brokerId);
+            } catch (Exception e) {
+                log.error("런타임 MQTT 브로커 구독 해제 실패: brokerId={}", brokerId, e);
+            }
+        }
         return ResponseEntity.noContent().build();
     }
 }

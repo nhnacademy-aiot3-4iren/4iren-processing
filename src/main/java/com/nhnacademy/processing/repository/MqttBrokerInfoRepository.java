@@ -7,4 +7,6 @@ import java.util.List;
 
 public interface MqttBrokerInfoRepository extends JpaRepository<MqttBrokerInfo, Long> {
     List<MqttBrokerInfo> findAllByEnabled(Boolean enabled);
+
+    List<MqttBrokerInfo> findAllByBuildingId(Long buildingId);
 }
