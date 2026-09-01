@@ -4,6 +4,8 @@ import com.nhnacademy.processing.domain.MqttBrokerInfo;
 import com.nhnacademy.processing.dto.mqtt.MqttBrokerCreateRequest;
 import com.nhnacademy.processing.dto.mqtt.MqttBrokerInfoDto;
 import com.nhnacademy.processing.repository.MqttBrokerInfoRepository;
+import com.nhnacademy.processing.repository.SensorDeviceRepository;
+import com.nhnacademy.processing.repository.SensorMeasurementRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -12,6 +14,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -22,6 +25,12 @@ class MqttBrokerServiceTest {
 
     @Mock
     private MqttBrokerInfoRepository repository;
+
+    @Mock
+    private SensorMeasurementRepository sensorMeasurementRepository;
+
+    @Mock
+    private SensorDeviceRepository sensorDeviceRepository;
 
     @InjectMocks
     private MqttBrokerService service;
@@ -53,7 +62,6 @@ class MqttBrokerServiceTest {
                 "application/+/device/+/event/up"
         );
 
-        // repository.save() 호출 시 반환될 Mock Entity 설정 (buildingId 포함 생성자 사용)
         MqttBrokerInfo savedEntity = new MqttBrokerInfo(
                 1L,
                 buildingId,
@@ -78,18 +86,63 @@ class MqttBrokerServiceTest {
         assertThat(result.username()).isEqualTo("user");
         assertThat(result.topic()).isEqualTo("application/+/device/+/event/up");
 
-        // DB save 메서드가 정확히 1번 호출되었는지 검증
         verify(repository, times(1)).save(any(MqttBrokerInfo.class));
     }
 
     @Test
-    @DisplayName("특정 ID의 브로커 정보 삭제")
+    @DisplayName("특정 ID의 브로커 정보 삭제 - 존재하는 경우 연관 데이터 벌크 삭제 후 브로커 삭제")
     void testDeleteMqttBroker() {
+        // Given
         Long brokerId = 1L;
-        doNothing().when(repository).deleteById(brokerId);
+        MqttBrokerInfo brokerInfo = mock(MqttBrokerInfo.class);
+        when(repository.findById(brokerId)).thenReturn(Optional.of(brokerInfo));
 
+        // When
         service.delete(brokerId);
 
-        verify(repository, times(1)).deleteById(brokerId);
+        // Then
+        verify(sensorMeasurementRepository, times(1)).deleteAllByBrokerId(brokerId);
+        verify(sensorDeviceRepository, times(1)).deleteAllByBrokerId(brokerId);
+        verify(repository, times(1)).findById(brokerId);
+        verify(repository, times(1)).delete(brokerInfo);
+    }
+
+    @Test
+    @DisplayName("특정 ID의 브로커 정보 삭제 - 브로커가 없어도 연관 데이터 정리 후 안전하게 종료")
+    void testDeleteMqttBroker_NotFound() {
+        // Given
+        Long brokerId = 1L;
+        when(repository.findById(brokerId)).thenReturn(Optional.empty());
+
+        // When
+        service.delete(brokerId);
+
+        // Then
+        verify(sensorMeasurementRepository, times(1)).deleteAllByBrokerId(brokerId);
+        verify(sensorDeviceRepository, times(1)).deleteAllByBrokerId(brokerId);
+        verify(repository, times(1)).findById(brokerId);
+        verify(repository, never()).delete(any(MqttBrokerInfo.class));
+    }
+
+    @Test
+    @DisplayName("건물 ID 기준 브로커 삭제 - 연관 데이터 벌크 삭제 및 삭제된 브로커 ID 목록 반환")
+    void testDeleteByBuildingId() {
+        // Given
+        MqttBrokerInfo broker1 = mock(MqttBrokerInfo.class);
+        MqttBrokerInfo broker2 = mock(MqttBrokerInfo.class);
+        when(broker1.getId()).thenReturn(1L);
+        when(broker2.getId()).thenReturn(2L);
+
+        List<MqttBrokerInfo> brokers = List.of(broker1, broker2);
+        when(repository.findAllByBuildingId(buildingId)).thenReturn(brokers);
+
+        // When
+        List<Long> deletedIds = service.deleteByBuildingId(buildingId);
+
+        // Then
+        assertThat(deletedIds).containsExactly(1L, 2L);
+        verify(sensorMeasurementRepository, times(1)).deleteAllByBuildingId(buildingId);
+        verify(sensorDeviceRepository, times(1)).deleteAllByBuildingId(buildingId);
+        verify(repository, times(1)).deleteAll(brokers);
     }
 }

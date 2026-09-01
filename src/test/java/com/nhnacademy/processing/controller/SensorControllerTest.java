@@ -77,7 +77,7 @@ class SensorControllerTest {
     void getSensorsByBuilding_Success() throws Exception {
         Long buildingId = 101L;
         List<SensorSummaryResponse> responses = List.of(
-                new SensorSummaryResponse("devEui1", buildingId, "온습도센서", "전면")
+                new SensorSummaryResponse("devEui1", buildingId, "온습도센서", "강의실", "전면")
         );
 
         when(sensorDeviceService.getSensorsByBuildingId(buildingId)).thenReturn(responses);
@@ -113,7 +113,7 @@ class SensorControllerTest {
         Long buildingId = 101L;
         Integer roomId = 202;
         List<SensorSummaryResponse> responses = List.of(
-                new SensorSummaryResponse("devEui1", buildingId, "온습도센서", "전면")
+                new SensorSummaryResponse("devEui1", buildingId, "온습도센서", "강의실", "전면")
         );
 
         // Building 스코프가 적용된 서비스 메서드 모킹

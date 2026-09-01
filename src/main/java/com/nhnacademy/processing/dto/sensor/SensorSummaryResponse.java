@@ -6,6 +6,7 @@ public record SensorSummaryResponse(
         String devEui,
         Long buildingId,
         String deviceName,
+        String location,
         String point
 ) {
     public static SensorSummaryResponse from(SensorDevice device) {
@@ -13,6 +14,7 @@ public record SensorSummaryResponse(
                 device.getDevEui(),
                 device.getMqttBrokerInfo().getBuildingId(),
                 device.getDeviceName(),
+                device.getLocation(),
                 device.getPoint()
         );
     }

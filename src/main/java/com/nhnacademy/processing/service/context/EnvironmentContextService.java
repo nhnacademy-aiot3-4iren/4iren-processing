@@ -6,15 +6,11 @@ import com.nhnacademy.processing.dto.parse.SensorData;
 import com.nhnacademy.processing.dto.rule.MeasurementCategory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jspecify.annotations.NonNull;
-import org.springframework.data.redis.core.RedisOperations;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.SessionCallback;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
 @Service
@@ -22,10 +18,11 @@ import java.util.concurrent.atomic.AtomicReference;
 public class EnvironmentContextService {
 
     private static final String KEY_PREFIX = "env:context:";
-    private static final int MAX_RETRY = 3;
+    private final RedisTemplate<String, EnvironmentContext.MetricInfo> environmentContextRedisTemplate;
 
-    private final RedisTemplate<String, EnvironmentContext> environmentContextRedisTemplate;
-
+    /**
+     * 센서 수신 데이터를 해당 RoomId의 Redis Hash에 원자적으로 저장/갱신
+     */
     public Optional<EnvironmentContext> updateContext(ParsedSensorMessage message, Integer roomId) {
         if (roomId == null || message.device() == null) {
             return Optional.empty();
@@ -42,66 +39,47 @@ public class EnvironmentContextService {
             return Optional.empty();
         }
 
-        EnvironmentContext merged = updateWithOptimisticLock(roomId, environmentData, devEui, updatedAt);
-
-        return Optional.of(merged);
-    }
-
-    private EnvironmentContext updateWithOptimisticLock(Integer roomId, List<SensorData> environmentData, String devEui, Instant updatedAt) {
         String key = key(roomId);
-
-        for (int attempt = 1; attempt <= MAX_RETRY; attempt++) {
-            EnvironmentContext result = tryUpdateOnce(key, roomId, environmentData, devEui, updatedAt);
-            if (result != null) {
-                return result;
-            }
-            log.debug("EnvironmentContext 동시 갱신 충돌로 재시도: roomId({}), attempt({})", roomId, attempt);
-        }
-
-        throw new IllegalStateException(
-                "EnvironmentContext 갱신 재시도 초과 (동시 갱신 충돌): roomId=" + roomId + ", retry=" + MAX_RETRY);
-    }
-
-    @SuppressWarnings("unchecked")
-    private EnvironmentContext tryUpdateOnce(String key, Integer roomId, List<SensorData> environmentData, String devEui, Instant updatedAt) {
-        AtomicReference<EnvironmentContext> mergedRef = new AtomicReference<>();
-
-        List<Object> execResult = environmentContextRedisTemplate.execute(new SessionCallback<>() {
-            @Override
-            public List<Object> execute(@NonNull RedisOperations operations) {
-                operations.watch(key);
-
-                EnvironmentContext existing = (EnvironmentContext) operations.opsForValue().get(key);
-                EnvironmentContext merged = merge(roomId, existing, environmentData, devEui, updatedAt);
-                mergedRef.set(merged);
-
-                operations.multi();
-                operations.opsForValue().set(key, merged);
-
-                return operations.exec();
-            }
-        });
-
-        if (execResult == null || execResult.isEmpty()) {
-            return null;
-        }
-
-        return mergedRef.get();
-    }
-
-    private EnvironmentContext merge(Integer roomId, EnvironmentContext existing, List<SensorData> environmentData, String devEui, Instant updatedAt) {
-        Map<String, EnvironmentContext.MetricInfo> mergedMetrics = new HashMap<>();
-        if (existing != null && existing.metrics() != null) {
-            for (EnvironmentContext.MetricInfo metricInfo : existing.metrics()) {
-                mergedMetrics.put(metricInfo.metric(), metricInfo);
-            }
-        }
-
+        Map<String, EnvironmentContext.MetricInfo> updates = new HashMap<>();
         for (SensorData data : environmentData) {
-            mergedMetrics.put(data.measurement(), new EnvironmentContext.MetricInfo(data.measurement(), data.value(), devEui, updatedAt));
+            updates.put(data.measurement(), new EnvironmentContext.MetricInfo(data.measurement(), data.value(), devEui, updatedAt));
         }
 
-        return new EnvironmentContext(roomId, List.copyOf(mergedMetrics.values()), updatedAt);
+        // 1. 락 없이 원자적으로 Hash 필드 갱신 (HMSET / HSET)
+        environmentContextRedisTemplate.<String, EnvironmentContext.MetricInfo>opsForHash().putAll(key, updates);
+
+        // 2. 현재 방의 전체 메트릭 조회 후 EnvironmentContext 반환
+        Map<String, EnvironmentContext.MetricInfo> allEntries =
+                environmentContextRedisTemplate.<String, EnvironmentContext.MetricInfo>opsForHash().entries(key);
+
+        List<EnvironmentContext.MetricInfo> metrics = new ArrayList<>(allEntries.values());
+        return Optional.of(new EnvironmentContext(roomId, metrics, updatedAt));
+    }
+
+    /**
+     * 특정 방의 현재 전체 환경 컨텍스트 조회
+     */
+    public Optional<EnvironmentContext> getContext(Integer roomId) {
+        if (roomId == null) {
+            return Optional.empty();
+        }
+
+        String key = key(roomId);
+        Map<String, EnvironmentContext.MetricInfo> entries =
+                environmentContextRedisTemplate.<String, EnvironmentContext.MetricInfo>opsForHash().entries(key);
+
+        if (entries == null || entries.isEmpty()) {
+            return Optional.empty();
+        }
+
+        List<EnvironmentContext.MetricInfo> metrics = new ArrayList<>(entries.values());
+        Instant latestUpdatedAt = metrics.stream()
+                .map(EnvironmentContext.MetricInfo::updatedAt)
+                .filter(Objects::nonNull)
+                .max(Comparator.naturalOrder())
+                .orElse(null);
+
+        return Optional.of(new EnvironmentContext(roomId, metrics, latestUpdatedAt));
     }
 
     private String key(Integer roomId) {
