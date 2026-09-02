@@ -49,10 +49,12 @@ public class SensorIntegrationFlowConfig {
                 // 4. 디바이스 DB 등록 서비스 호출 (미등록 기기는 roomId = null 로 등록)
                 .handle(ParsedSensorMessage.class, (payload, headers) -> {
                     Long brokerId = headers.get(SensorMessageHeaders.BROKER_ID, Long.class);
+                    Integer roomId = headers.get(SensorMessageHeaders.ROOM_ID, Integer.class);
                     try {
                         sensorDeviceRegistry.ensureRegistered(payload, brokerId);
                     } catch (Exception e) {
-                        sensorErrorChannel.send(MessageBuilder.withPayload(new SensorErrorFlowConfig.ProcessingFailure(brokerId, e)).build());
+                        sensorErrorChannel.send(MessageBuilder.withPayload(
+                                new SensorErrorFlowConfig.ProcessingFailure(brokerId, roomId, payload.device().devEui(), e)).build());
                     }
                     return payload;
                 })

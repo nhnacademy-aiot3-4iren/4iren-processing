@@ -117,9 +117,35 @@ public class SensorDeviceService {
                 .toList();
     }
 
+    /**
+     * 룸 삭제 시 호출: roomId에 배정되어 있던 모든 센서의 roomId를 null로 초기화한다.
+     * (개별 센서를 devEui 단위로 알 필요 없이, 룸 삭제 이벤트 하나로 소속 센서 전체를 일괄 해제)
+     */
+    @Transactional
+    public List<RoomAssignmentResult> unassignRoom(Integer roomId) {
+        List<SensorDevice> devices = sensorDeviceRepository.findAllByRoomId(roomId);
+        devices.forEach(device -> device.assignRoom(null));
+
+        return devices.stream()
+                .map(device -> new RoomAssignmentResult(
+                        device.getDevEui(),
+                        device.getMqttBrokerInfo().getId(),
+                        null
+                ))
+                .toList();
+    }
+
     @Transactional(readOnly = true)
     public List<SensorSummaryResponse> getSensorsByBuildingId(Long buildingId) {
         return sensorDeviceRepository.findAllByMqttBrokerInfo_BuildingId(buildingId).stream()
+                .map(SensorSummaryResponse::from)
+                .toList();
+    }
+
+    // "센서 추가" 목록용: 이미 다른 룸에 배정된 센서는 제외하고, 아직 미배정인 센서만 반환
+    @Transactional(readOnly = true)
+    public List<SensorSummaryResponse> getUnassignedSensorsByBuildingId(Long buildingId) {
+        return sensorDeviceRepository.findAllByMqttBrokerInfo_BuildingIdAndRoomIdIsNull(buildingId).stream()
                 .map(SensorSummaryResponse::from)
                 .toList();
     }

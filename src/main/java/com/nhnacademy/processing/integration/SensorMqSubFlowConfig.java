@@ -84,8 +84,14 @@ public class SensorMqSubFlowConfig {
                     try {
                         environmentContextService.updateContext(message, roomId);
                     } catch (Exception e) {
-                        log.error("EnvironmentContext Redis 갱신 실패: roomId({}), devEui({})", roomId, message.device().devEui(), e);
-                        sensorErrorChannel.send(MessageBuilder.withPayload(new SensorErrorFlowConfig.ProcessingFailure(brokerId, e)).build());
+                        try {
+                            sensorErrorChannel.send(MessageBuilder.withPayload(
+                                    new SensorErrorFlowConfig.ProcessingFailure(brokerId, roomId, message.device().devEui(), e)).build());
+                        } catch (Exception channelEx) {
+                            log.error("EnvironmentContext 갱신 및 에러 채널 전송 동시 실패: brokerId({}), roomId({}), devEui({})",
+                                    brokerId, roomId, message.device().devEui(), e);
+                            log.error("에러 채널 전송 실패 원인:", channelEx);
+                        }
                     }
 
                     return message;

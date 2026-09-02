@@ -77,7 +77,7 @@ class SensorControllerTest {
     void getSensorsByBuilding_Success() throws Exception {
         Long buildingId = 101L;
         List<SensorSummaryResponse> responses = List.of(
-                new SensorSummaryResponse("devEui1", buildingId, "온습도센서", "강의실", "전면")
+                new SensorSummaryResponse("devEui1", buildingId, "온습도센서", "강의실", "전면", null)
         );
 
         when(sensorDeviceService.getSensorsByBuildingId(buildingId)).thenReturn(responses);
@@ -86,9 +86,30 @@ class SensorControllerTest {
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].devEui").value("devEui1"))
-                .andExpect(jsonPath("$[0].deviceName").value("온습도센서"));
+                .andExpect(jsonPath("$[0].deviceName").value("온습도센서"))
+                .andExpect(jsonPath("$[0].roomId").doesNotExist());
 
         verify(sensorDeviceService).getSensorsByBuildingId(buildingId);
+    }
+
+    @Test
+    @DisplayName("buildingId로 소속된 미배정(roomId is null) 센서 요약 목록 조회")
+    void getUnassignedSensorsByBuilding_Success() throws Exception {
+        Long buildingId = 101L;
+        List<SensorSummaryResponse> responses = List.of(
+                new SensorSummaryResponse("devEui2", buildingId, "화재감지센서", "복도", "중앙", null)
+        );
+
+        when(sensorDeviceService.getUnassignedSensorsByBuildingId(buildingId)).thenReturn(responses);
+
+        mockMvc.perform(get("/api/processing/sensors/buildings/{buildingId}/unassigned", buildingId)
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].devEui").value("devEui2"))
+                .andExpect(jsonPath("$[0].deviceName").value("화재감지센서"))
+                .andExpect(jsonPath("$[0].roomId").doesNotExist());
+
+        verify(sensorDeviceService).getUnassignedSensorsByBuildingId(buildingId);
     }
 
     @Test
@@ -108,22 +129,34 @@ class SensorControllerTest {
     }
 
     @Test
+    @DisplayName("특정 Room의 모든 센서 배정 해제 (ADMIN) 성공")
+    void unassignRoom_Success() throws Exception {
+        Integer roomId = 202;
+
+        mockMvc.perform(delete("/api/processing/sensors/rooms/{roomId}", roomId)
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNoContent());
+
+        verify(sensorDeviceRegistry).unassignRoomAndEvictCache(roomId);
+    }
+
+    @Test
     @DisplayName("buildingId와 roomId로 방에 배정된 센서 목록 조회 (Building 스코프 제한 적용)")
     void getSensorsByBuildingAndRoom_Success() throws Exception {
         Long buildingId = 101L;
         Integer roomId = 202;
         List<SensorSummaryResponse> responses = List.of(
-                new SensorSummaryResponse("devEui1", buildingId, "온습도센서", "강의실", "전면")
+                new SensorSummaryResponse("devEui1", buildingId, "온습도센서", "강의실", "전면", roomId)
         );
 
-        // Building 스코프가 적용된 서비스 메서드 모킹
         when(sensorDeviceService.getSensorsByBuildingIdAndRoomId(buildingId, roomId)).thenReturn(responses);
 
         mockMvc.perform(get("/api/processing/sensors/buildings/{buildingId}/rooms/{roomId}", buildingId, roomId)
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].devEui").value("devEui1"))
-                .andExpect(jsonPath("$[0].deviceName").value("온습도센서"));
+                .andExpect(jsonPath("$[0].deviceName").value("온습도센서"))
+                .andExpect(jsonPath("$[0].roomId").value(roomId));
 
         verify(sensorDeviceService).getSensorsByBuildingIdAndRoomId(buildingId, roomId);
     }

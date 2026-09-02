@@ -16,6 +16,8 @@ public interface SensorDeviceRepository extends JpaRepository<SensorDevice, Long
 
     List<SensorDevice> findAllByMqttBrokerInfo_BuildingIdAndRoomId(Long buildingId, Integer roomId);
 
+    List<SensorDevice> findAllByMqttBrokerInfo_BuildingIdAndRoomIdIsNull(Long buildingId);
+
     boolean existsByDevEuiAndMqttBrokerInfo_Id(String devEui, Long brokerId);
 
     Optional<SensorDevice> findByDevEuiAndMqttBrokerInfo_Id(String devEui, Long brokerId);

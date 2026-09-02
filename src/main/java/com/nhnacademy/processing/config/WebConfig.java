@@ -22,7 +22,7 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addInterceptor(authenticationInterceptor)
                 .addPathPatterns(
                         "/api/processing/mqtt/**",
-                        "/api/processing/sensors/rooms"
+                        "/api/processing/sensors/**"
                 );
     }
 

@@ -22,4 +22,14 @@ public record MqttBrokerInfoDto(
                 info.getTopic()
         );
     }
+
+    public MqttBrokerUpdateRequest toUpdateRequest() {
+        return new MqttBrokerUpdateRequest(
+                this.serverName,
+                this.brokerUrl,
+                this.username,
+                this.password,
+                this.topic
+        );
+    }
 }

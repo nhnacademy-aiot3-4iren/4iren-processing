@@ -11,6 +11,5 @@ public record SensorRoomAssignmentRequest(
         @NotNull(message = "buildingId는 필수입니다.")
         Long buildingId,
 
-        @NotNull(message = "roomId는 필수입니다.")
         Integer roomId
 ) {}
