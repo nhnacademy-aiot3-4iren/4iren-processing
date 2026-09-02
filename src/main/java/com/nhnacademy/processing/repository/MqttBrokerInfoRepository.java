@@ -9,4 +9,6 @@ public interface MqttBrokerInfoRepository extends JpaRepository<MqttBrokerInfo, 
     List<MqttBrokerInfo> findAllByEnabled(Boolean enabled);
 
     List<MqttBrokerInfo> findAllByBuildingId(Long buildingId);
+
+    MqttBrokerInfo findFirstByBuildingId(Long buildingId);
 }

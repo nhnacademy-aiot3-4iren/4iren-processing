@@ -43,6 +43,13 @@ public class MqttBrokerService {
         return MqttBrokerInfoDto.from(savedEntity);
     }
 
+    @Transactional
+    public MqttBrokerInfoDto updateByBuilding(Long buildingId, MqttBrokerCreateRequest request) {
+        MqttBrokerInfo broker = mqttBrokerInfoRepository.findFirstByBuildingId(buildingId);
+        broker.update(request.serverName(), request.brokerUrl(), request.username(), request.password(), request.topic());
+        return MqttBrokerInfoDto.from(broker);
+    }
+
     @Transactional(readOnly = true)
     public Optional<MqttBrokerInfoDto> getBrokerByBuildingId(Long buildingId) {
         return mqttBrokerInfoRepository.findAllByBuildingId(buildingId).stream()

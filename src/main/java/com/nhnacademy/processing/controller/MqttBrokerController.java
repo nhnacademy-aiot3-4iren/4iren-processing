@@ -60,6 +60,23 @@ public class MqttBrokerController {
         return ResponseEntity.status(HttpStatus.CREATED).body(broker);
     }
 
+    @Operation(summary = "MQTT 브로커 수정", description = "기존 건물의 MQTT 브로커 정보를 수정합니다.")
+    @RequireAdmin
+    @PutMapping("/building/{buildingId}")
+    public ResponseEntity<MqttBrokerInfoDto> updateBroker(@LoginUser AuthUser authUser,
+                                                          @PathVariable Long buildingId,
+                                                          @Valid @RequestBody MqttBrokerCreateRequest request) {
+        MqttBrokerInfoDto broker = mqttBrokerService.updateByBuilding(buildingId, request);
+        try {
+            mqttBrokerRegistry.unregisterBroker(broker.id());
+            mqttBrokerRegistry.registerBroker(broker);
+        } catch (Exception e) {
+            log.error("브로커 업데이트 중 런타임 갱신 실패");
+            throw e;
+        }
+        return ResponseEntity.ok(broker);
+    }
+
     @Operation(summary = "MQTT 브로커 삭제", description = "브로커 정보(및 하위 디바이스/측정 데이터)를 DB에서 먼저 삭제하고, 성공한 경우에만 런타임 구독을 해제합니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "브로커 삭제 완료(대상이 없었어도 204)"),
