@@ -309,6 +309,12 @@
                     </execution>
                 </executions>
             </plugin>
+
+            <plugin>
+                <groupId>org.sonarsource.scanner.maven</groupId>
+                <artifactId>sonar-maven-plugin</artifactId>
+                <version>3.11.0.3922</version> <!-- 최신 버전에 맞게 사용 가능 -->
+            </plugin>
         </plugins>
     </build>
 

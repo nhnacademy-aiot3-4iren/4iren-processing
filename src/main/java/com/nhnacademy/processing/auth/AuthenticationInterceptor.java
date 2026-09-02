@@ -7,6 +7,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
 
+import java.io.IOException;
+
 @Component
 public class AuthenticationInterceptor implements HandlerInterceptor {
 
@@ -62,7 +64,7 @@ public class AuthenticationInterceptor implements HandlerInterceptor {
     }
 
     // 예외를 던지는 대신 Response에 직접 에러를 작성하고 false를 반환하여 요청 처리 중단
-    private boolean sendErrorResponse(HttpServletResponse response, HttpStatus status, String message) throws Exception {
+    private boolean sendErrorResponse(HttpServletResponse response, HttpStatus status, String message) throws IOException {
         response.setStatus(status.value());
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
