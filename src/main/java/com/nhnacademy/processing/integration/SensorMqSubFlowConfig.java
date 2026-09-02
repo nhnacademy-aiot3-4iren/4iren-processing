@@ -84,10 +84,14 @@ public class SensorMqSubFlowConfig {
                     try {
                         environmentContextService.updateContext(message, roomId);
                     } catch (Exception e) {
-                        // 로깅은 sensorErrorFlow(SensorErrorFlowConfig) 한 곳에서만 수행한다.
-                        // roomId/devEui를 함께 실어 보내 중복 로깅 없이도 전체 컨텍스트를 남길 수 있게 한다.
-                        sensorErrorChannel.send(MessageBuilder.withPayload(
-                                new SensorErrorFlowConfig.ProcessingFailure(brokerId, roomId, message.device().devEui(), e)).build());
+                        try {
+                            sensorErrorChannel.send(MessageBuilder.withPayload(
+                                    new SensorErrorFlowConfig.ProcessingFailure(brokerId, roomId, message.device().devEui(), e)).build());
+                        } catch (Exception channelEx) {
+                            log.error("EnvironmentContext 갱신 및 에러 채널 전송 동시 실패: brokerId({}), roomId({}), devEui({})",
+                                    brokerId, roomId, message.device().devEui(), e);
+                            log.error("에러 채널 전송 실패 원인:", channelEx);
+                        }
                     }
 
                     return message;

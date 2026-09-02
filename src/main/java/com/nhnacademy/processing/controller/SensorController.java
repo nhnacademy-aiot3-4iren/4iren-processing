@@ -69,7 +69,7 @@ public class SensorController {
             @ApiResponse(responseCode = "403", description = "관리자 권한 없음")
     })
     @RequireAdmin
-    @DeleteMapping("/rooms/{roomId}/sensors")
+    @DeleteMapping("/sensors/rooms/{roomId}")
     public ResponseEntity<Void> unassignRoom(@LoginUser AuthUser authUser, @PathVariable Integer roomId) {
         sensorDeviceRegistry.unassignRoomAndEvictCache(roomId);
         return ResponseEntity.noContent().build();

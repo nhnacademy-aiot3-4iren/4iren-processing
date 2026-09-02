@@ -9,7 +9,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "mqtt_broker_info")
+@Table(
+        name = "mqtt_broker_info",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_mqtt_broker_info_building",
+                        columnNames = {"building_id"}
+                )
+        }
+)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class MqttBrokerInfo {
@@ -21,7 +29,7 @@ public class MqttBrokerInfo {
     @Column(nullable = false, length = 100)
     private String serverName;
 
-    @Column(nullable = false)
+    @Column(name = "building_id", nullable = false)
     private Long buildingId;
 
     @Column(nullable = false)

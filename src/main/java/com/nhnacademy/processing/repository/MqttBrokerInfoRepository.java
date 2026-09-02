@@ -9,7 +9,7 @@ import java.util.Optional;
 public interface MqttBrokerInfoRepository extends JpaRepository<MqttBrokerInfo, Long> {
     List<MqttBrokerInfo> findAllByEnabled(Boolean enabled);
 
-    List<MqttBrokerInfo> findAllByBuildingId(Long buildingId);
+    Optional<MqttBrokerInfo> findByBuildingId(Long buildingId);
 
-    Optional<MqttBrokerInfo> findFirstByBuildingId(Long buildingId);
+    boolean existsByBuildingId(Long buildingId);
 }
