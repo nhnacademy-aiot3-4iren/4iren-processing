@@ -71,6 +71,15 @@ public class SensorDeviceRegistry {
         }
     }
 
+    // 룸이 삭제되었을 때: 소속 센서 전체의 roomId를 null로 초기화하고 캐시도 함께 무효화
+    public void unassignRoomAndEvictCache(Integer roomId) {
+        List<RoomAssignmentResult> clearedDevices = sensorDeviceService.unassignRoom(roomId);
+        for (RoomAssignmentResult result : clearedDevices) {
+            String cacheKey = getCacheKey(result.devEui(), result.brokerId());
+            roomIdCache.put(cacheKey, Optional.empty());
+        }
+    }
+
     private void registerMeasurementsIfAbsent(ParsedSensorMessage message, String devEui, Long brokerId, String cacheKey) {
         Set<String> known = knownMeasurementsCache.get(cacheKey, key -> sensorDeviceService.loadKnownMeasurements(devEui, brokerId));
         message.sensorDataList().stream()
