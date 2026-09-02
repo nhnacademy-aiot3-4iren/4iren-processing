@@ -110,7 +110,8 @@ public class MqttBrokerRegistry {
                         .build();
                 sensorInputChannel.send(withBrokerId);
             } catch (Exception e) {
-                sensorErrorChannel.send(MessageBuilder.withPayload(new SensorErrorFlowConfig.ProcessingFailure(brokerId, e)).build());
+                // 이 시점은 원시 MQTT 메시지 단계라 아직 파싱 전이라 roomId/devEui를 알 수 없음
+                sensorErrorChannel.send(MessageBuilder.withPayload(new SensorErrorFlowConfig.ProcessingFailure(brokerId, null, null, e)).build());
             } finally {
                 if (ackCallBack instanceof SimpleAcknowledgment ack) {
                     ack.acknowledge();

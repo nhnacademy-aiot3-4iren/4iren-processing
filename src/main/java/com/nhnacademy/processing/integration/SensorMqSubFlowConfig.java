@@ -84,8 +84,10 @@ public class SensorMqSubFlowConfig {
                     try {
                         environmentContextService.updateContext(message, roomId);
                     } catch (Exception e) {
-                        log.error("EnvironmentContext Redis 갱신 실패: roomId({}), devEui({})", roomId, message.device().devEui(), e);
-                        sensorErrorChannel.send(MessageBuilder.withPayload(new SensorErrorFlowConfig.ProcessingFailure(brokerId, e)).build());
+                        // 로깅은 sensorErrorFlow(SensorErrorFlowConfig) 한 곳에서만 수행한다.
+                        // roomId/devEui를 함께 실어 보내 중복 로깅 없이도 전체 컨텍스트를 남길 수 있게 한다.
+                        sensorErrorChannel.send(MessageBuilder.withPayload(
+                                new SensorErrorFlowConfig.ProcessingFailure(brokerId, roomId, message.device().devEui(), e)).build());
                     }
 
                     return message;
