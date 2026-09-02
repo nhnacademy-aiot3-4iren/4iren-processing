@@ -59,7 +59,8 @@ public class SensorDeviceRegistry {
         Optional<Integer> roomIdOpt = roomIdCache.get(cacheKey, key ->
                 Optional.ofNullable(sensorDeviceService.findRoomId(devEui, brokerId))
         );
-        return (roomIdOpt != null && roomIdOpt.isPresent()) ? roomIdOpt.get() : null;
+
+        return roomIdOpt.orElse(null);
     }
 
     // 관리자가 방을 배정했을 때 즉시 캐시 갱신/무효화

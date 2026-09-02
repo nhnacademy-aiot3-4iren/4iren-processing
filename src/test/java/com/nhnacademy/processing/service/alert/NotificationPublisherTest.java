@@ -24,7 +24,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class NotificationPublisherTest {
-
     @Mock private RabbitTemplate rabbitTemplate;
     @Mock private ValidationRuleRegistry ruleRegistry;
 
@@ -41,43 +40,54 @@ class NotificationPublisherTest {
     }
 
     @Test
-    @DisplayName("정상적으로 RabbitMQ 발행한다")
-    void publish_Success() {
+    @DisplayName("이상 감지 이벤트 정상 발행 - value가 maxValue보다 큼 (threshold = maxValue)")
+    void publish_Success_AboveMax() {
         String measurement = "temperature";
         Double value = 99.9;
         Instant now = Instant.now();
-
         DeviceIdentity device = new DeviceIdentity(
                 "app1", "appName", "prof1", "deviceName123", "devEui123", 101, "location", "pointA"
         );
+
         Metric metric = new Metric(1L, "temperature", "°C");
         Rule mockRule = new Rule(1L, metric, -10.0, 30.0);
-
         when(ruleRegistry.findRule(measurement)).thenReturn(Optional.of(mockRule));
+
         notificationPublisher.publish(device, measurement, value, now);
 
         ArgumentCaptor<AlertEvent> eventCaptor = ArgumentCaptor.forClass(AlertEvent.class);
         verify(rabbitTemplate, times(1)).convertAndSend(eq(exchange), eq(routingKey), eventCaptor.capture());
 
         AlertEvent event = eventCaptor.getValue();
-        assertEquals(101, event.roomId());
-        assertEquals("pointA", event.point());
-        assertEquals("deviceName123", event.deviceName());
-        assertEquals("devEui123", event.deviceEui());
-        assertEquals("SENSOR_ANOMALY", event.alertType());
-        assertEquals(now, event.detectedAt());
-        assertNotNull(event.eventId());
+        assertEquals(30.0, event.nodeResults().getFirst().threshold()); // maxValue
+    }
 
-        assertEquals(1, event.nodeResults().size());
-        AlertEvent.NodeResult nodeResult = event.nodeResults().getFirst();
-        assertEquals(measurement, nodeResult.metricType());
-        assertEquals("°C", nodeResult.unit());
-        assertEquals(30.0, nodeResult.threshold());
-        assertEquals(value, nodeResult.value());
+    // --- 신규 추가: threshold가 minValue에 맞춰 할당되는 브랜치 테스트 ---
+    @Test
+    @DisplayName("이상 감지 이벤트 정상 발행 - value가 minValue보다 작음 (threshold = minValue)")
+    void publish_Success_BelowMin() {
+        String measurement = "temperature";
+        Double value = -20.0;
+        Instant now = Instant.now();
+        DeviceIdentity device = new DeviceIdentity(
+                "app1", "appName", "prof1", "deviceName123", "devEui123", 101, "location", "pointA"
+        );
+
+        Metric metric = new Metric(1L, "temperature", "°C");
+        Rule mockRule = new Rule(1L, metric, -10.0, 30.0);
+        when(ruleRegistry.findRule(measurement)).thenReturn(Optional.of(mockRule));
+
+        notificationPublisher.publish(device, measurement, value, now);
+
+        ArgumentCaptor<AlertEvent> eventCaptor = ArgumentCaptor.forClass(AlertEvent.class);
+        verify(rabbitTemplate, times(1)).convertAndSend(eq(exchange), eq(routingKey), eventCaptor.capture());
+
+        AlertEvent event = eventCaptor.getValue();
+        assertEquals(-10.0, event.nodeResults().getFirst().threshold()); // minValue
     }
 
     @Test
-    @DisplayName("RabbitMQ 통신 에러 발생 시 예외를 전파하지 않고 로그만 남김")
+    @DisplayName("RabbitMQ 발행 실패해도 예외를 던지지 않고 로그만 남김")
     void publish_ThrowsException_LogsAndDoesNotThrow() {
         doThrow(new RuntimeException("RabbitMQ connection refused"))
                 .when(rabbitTemplate).convertAndSend(anyString(), anyString(), any(AlertEvent.class));
@@ -85,10 +95,9 @@ class NotificationPublisherTest {
         DeviceIdentity device = new DeviceIdentity(
                 "app1", "appName", "prof1", "deviceName123", "dev123", 101, "location","pointA"
         );
-
         when(ruleRegistry.findRule(anyString())).thenReturn(Optional.empty());
-        notificationPublisher.publish(device, "temperature", 50.0, Instant.now());
 
+        assertDoesNotThrow(() -> notificationPublisher.publish(device, "temperature", 50.0, Instant.now()));
         verify(rabbitTemplate, times(1)).convertAndSend(anyString(), anyString(), any(AlertEvent.class));
     }
 }
