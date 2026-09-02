@@ -3,6 +3,7 @@ package com.nhnacademy.processing.service.mqtt;
 import com.nhnacademy.processing.domain.MqttBrokerInfo;
 import com.nhnacademy.processing.dto.mqtt.MqttBrokerCreateRequest;
 import com.nhnacademy.processing.dto.mqtt.MqttBrokerInfoDto;
+import com.nhnacademy.processing.exception.MqttBrokerNotFoundException;
 import com.nhnacademy.processing.repository.MqttBrokerInfoRepository;
 import com.nhnacademy.processing.repository.SensorDeviceRepository;
 import com.nhnacademy.processing.repository.SensorMeasurementRepository;
@@ -45,7 +46,8 @@ public class MqttBrokerService {
 
     @Transactional
     public MqttBrokerInfoDto updateByBuilding(Long buildingId, MqttBrokerCreateRequest request) {
-        MqttBrokerInfo broker = mqttBrokerInfoRepository.findFirstByBuildingId(buildingId);
+        MqttBrokerInfo broker = mqttBrokerInfoRepository.findFirstByBuildingId(buildingId)
+                .orElseThrow(() -> new MqttBrokerNotFoundException(buildingId));
         broker.update(request.serverName(), request.brokerUrl(), request.username(), request.password(), request.topic());
         return MqttBrokerInfoDto.from(broker);
     }
