@@ -25,9 +25,13 @@ import java.util.List;
  *   -> [Transformer + Filter] roomId를 모르거나 발행 대상 SensorData가 하나도 없으면 드랍
  *                              발행 대상만 걸러낸 새 ParsedSensorMessage 하나로 재구성.
  *   -> [Service Activator] EnvironmentContextService로 roomId의 Redis 환경 컨텍스트 갱신
- *                           (ENVIRONMENT 카테고리만 병합 대상. 실패해도 파이프라인은 계속 진행하고
- *                            에러만 sensorErrorChannel로 라우팅)
- *   -> [AMQP Outbound Adapter] 위에서 만든 메시지 하나만 RabbitMQ로 발행
+ *                           (ENVIRONMENT/DEVICE_HEALTH 카테고리만 병합 대상. 갱신 결과인
+ *                            EnvironmentContext(roomId, metrics, updatedAt)로 페이로드를 교체한다.
+ *                            갱신에 실패하거나 갱신 대상이 없으면 메시지를 드랍하고,
+ *                            실패 시 에러만 sensorErrorChannel로 라우팅)
+ *   -> [AMQP Outbound Adapter] EnvironmentContext 페이로드를 RabbitMQ로 발행
+ *                              (rule-engine의 SensorPayloadConverter가 roomId/metrics/updatedAt
+ *                               형태로 역직렬화하므로, ParsedSensorMessage를 그대로 흘려보내면 안 된다)
  *
  * 발행 대상 판단 기준:
  *   - DEVICE_HEALTH  : 항상 발행 대상
@@ -76,13 +80,13 @@ public class SensorMqSubFlowConfig {
                     return new ParsedSensorMessage(newDevice, publishable, parsed.measuredAt());
                 })
 
-                // 3. roomId의 Redis 환경 컨텍스트 갱신
+                // 3. roomId의 Redis 환경 컨텍스트 갱신 -> 갱신 결과 EnvironmentContext로 페이로드 교체
                 .handle(ParsedSensorMessage.class, (message, headers) -> {
                     Integer roomId = headers.get(SensorMessageHeaders.ROOM_ID, Integer.class);
                     Long brokerId = headers.get(SensorMessageHeaders.BROKER_ID, Long.class);
 
                     try {
-                        environmentContextService.updateContext(message, roomId);
+                        return environmentContextService.updateContext(message, roomId).orElse(null);
                     } catch (Exception e) {
                         try {
                             sensorErrorChannel.send(MessageBuilder.withPayload(
@@ -92,12 +96,12 @@ public class SensorMqSubFlowConfig {
                                     brokerId, roomId, message.device().devEui(), e);
                             log.error("에러 채널 전송 실패 원인:", channelEx);
                         }
+                        // 갱신 실패 시 발행할 유효한 EnvironmentContext가 없으므로 드랍
+                        return null;
                     }
-
-                    return message;
                 })
 
-                // 4. AMQP Outbound Adapter로 RabbitMQ 발행
+                // 4. AMQP Outbound Adapter로 EnvironmentContext 발행
                 .handle(Amqp.outboundAdapter(rabbitTemplate)
                         .exchangeName(exchange)
                         .routingKey(routingKey)
