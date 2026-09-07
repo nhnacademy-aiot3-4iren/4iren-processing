@@ -2,7 +2,6 @@ package com.nhnacademy.processing.service.sensor;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.nhnacademy.processing.domain.SensorDevice;
 import com.nhnacademy.processing.dto.parse.ParsedSensorMessage;
 import com.nhnacademy.processing.dto.rule.MeasurementCategory;
 import com.nhnacademy.processing.dto.sensor.RoomAssignmentResult;
