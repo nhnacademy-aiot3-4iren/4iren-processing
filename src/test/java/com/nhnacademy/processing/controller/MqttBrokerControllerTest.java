@@ -5,7 +5,6 @@ import com.nhnacademy.processing.auth.AuthHeaders;
 import com.nhnacademy.processing.auth.AuthUserArgumentResolver;
 import com.nhnacademy.processing.auth.AuthenticationInterceptor;
 import com.nhnacademy.processing.config.WebConfig;
-import com.nhnacademy.processing.dto.mqtt.MqttBrokerCreateRequest;
 import com.nhnacademy.processing.dto.mqtt.MqttBrokerInfoDto;
 import com.nhnacademy.processing.dto.mqtt.MqttBrokerUpdateRequest;
 import com.nhnacademy.processing.service.mqtt.MqttBrokerRegistry;

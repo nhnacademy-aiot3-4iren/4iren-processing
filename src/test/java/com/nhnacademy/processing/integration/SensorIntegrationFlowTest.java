@@ -1,5 +1,6 @@
 package com.nhnacademy.processing.integration;
 
+import com.nhnacademy.processing.dto.context.EnvironmentContext;
 import com.nhnacademy.processing.dto.parse.DeviceIdentity;
 import com.nhnacademy.processing.dto.parse.ParsedSensorMessage;
 import com.nhnacademy.processing.dto.parse.SensorData;
@@ -31,6 +32,7 @@ import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -79,8 +81,16 @@ class SensorIntegrationFlowTest {
 
         doNothing().when(sensorDeviceRegistry).ensureRegistered(any(), any());
 
-        // 새로 추가된 roomId 조회 로직에 대한 Mocking 추가
+        // roomId 캐시/DB 조회 Mocking
         when(sensorDeviceRegistry.resolveRoomId(eq("devEui123"), eq(BROKER_ID))).thenReturn(VALID_ROOM_ID);
+
+        // Redis Context 갱신 성공 시의 반환 객체 Mocking (updateContext가 empty를 반환하면 MQ로 발행되지 않고 드랍되므로 기본 세팅)
+        EnvironmentContext mockContext = new EnvironmentContext(
+                VALID_ROOM_ID,
+                List.of(new EnvironmentContext.MetricInfo("temperature", 25.0, "devEui123", Instant.now())),
+                Instant.now()
+        );
+        when(contextService.updateContext(any(), any())).thenReturn(Optional.of(mockContext));
 
         MessageConverter mockConverter = mock(MessageConverter.class);
         when(mockConverter.toMessage(any(), any(MessageProperties.class)))
@@ -209,7 +219,7 @@ class SensorIntegrationFlowTest {
     }
 
     @Test
-    @DisplayName("EnvironmentContext 갱신에 예외가 발생해도 파이프라인 중단X MQ 발행을 계속함")
+    @DisplayName("EnvironmentContext 갱신에 예외가 발생하면 에러 채널로 전송하고 MQ 발행은 중단(드랍)")
     void redisUpdateFailure_ContinuesPipeline_AndSendsToMq() {
         SensorData validEnvData = new SensorData(MeasurementCategory.ENVIRONMENT, "co2", 400.0);
         ParsedSensorMessage parsedMessage = new ParsedSensorMessage(mockDevice, List.of(validEnvData), Instant.now());
@@ -218,11 +228,12 @@ class SensorIntegrationFlowTest {
         when(sensorValidator.validate(validEnvData)).thenReturn(ValidationStatus.VALID);
 
         doThrow(new RuntimeException("Redis timeout simulate"))
-                .when(contextService).updateContext(any(), anyInt());
+                .when(contextService).updateContext(any(), any());
 
         sendRawPayload();
 
         verify(contextService, times(1)).updateContext(any(ParsedSensorMessage.class), eq(VALID_ROOM_ID));
-        verify(rabbitTemplate, times(1)).send(anyString(), anyString(), any(Message.class), any());
+        // 갱신 실패 시 발행 대상 컨텍스트가 없으므로 MQ 발행이 일어수 없음을 검증
+        verify(rabbitTemplate, never()).send(anyString(), anyString(), any(Message.class), any());
     }
 }
