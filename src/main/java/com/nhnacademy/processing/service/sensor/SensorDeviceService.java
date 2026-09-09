@@ -177,9 +177,7 @@ public class SensorDeviceService {
         List<SensorMeasurement> measurements =
                 sensorMeasurementRepository.findAllByDevEuiWithMetricTypeAndUnit(devEui);
 
-        return measurements.stream()
-                .map(MetricTypeResponse::from)
-                .toList();
+        return toDistinctMetricTypes(measurements);
     }
 
     @Transactional(readOnly = true)
@@ -201,7 +199,10 @@ public class SensorDeviceService {
         Map<String, List<MetricTypeResponse>> metricsByDevEui = measurements.stream()
                 .collect(Collectors.groupingBy(
                         measurement -> measurement.getSensorDevice().getDevEui(),
-                        Collectors.mapping(MetricTypeResponse::from, Collectors.toUnmodifiableList())
+                        Collectors.collectingAndThen(
+                                Collectors.toList(),
+                                this::toDistinctMetricTypes
+                        )
                 ));
 
         Map<String, List<MetricTypeResponse>> result = new LinkedHashMap<>();
@@ -213,6 +214,17 @@ public class SensorDeviceService {
                 ));
 
         return Collections.unmodifiableMap(result);
+    }
+
+    private List<MetricTypeResponse> toDistinctMetricTypes(List<SensorMeasurement> measurements) {
+        Map<String, MetricTypeResponse> metricByCode = new TreeMap<>();
+
+        measurements.forEach(measurement -> {
+            MetricTypeResponse metric = MetricTypeResponse.from(measurement);
+            metricByCode.putIfAbsent(metric.metricCode(), metric);
+        });
+
+        return List.copyOf(metricByCode.values());
     }
 
     // ================== 내부 조립(Mapping) 로직 ==================
